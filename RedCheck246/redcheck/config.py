@@ -50,7 +50,7 @@ class RedCheckConfig:
         path = Path(path)
         if not path.exists():
             return cls()
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             data = yaml.safe_load(f) or {}
         return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
 

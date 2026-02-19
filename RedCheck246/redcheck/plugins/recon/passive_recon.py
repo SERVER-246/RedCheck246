@@ -24,18 +24,22 @@ class PassiveReconPlugin(BasePlugin):
             if not addr:
                 continue
             # Placeholder: in production these call real OSINT APIs
-            findings.append({
-                "type": "dns_lookup",
-                "target": addr,
-                "status": "pending",
-                "detail": f"DNS resolution queued for {addr}",
-            })
-            findings.append({
-                "type": "whois",
-                "target": addr,
-                "status": "pending",
-                "detail": f"WHOIS query queued for {addr}",
-            })
+            findings.append(
+                {
+                    "type": "dns_lookup",
+                    "target": addr,
+                    "status": "pending",
+                    "detail": f"DNS resolution queued for {addr}",
+                }
+            )
+            findings.append(
+                {
+                    "type": "whois",
+                    "target": addr,
+                    "status": "pending",
+                    "detail": f"WHOIS query queued for {addr}",
+                }
+            )
 
         return PluginResult(
             plugin_name=self.name,

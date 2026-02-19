@@ -11,7 +11,6 @@ from typing import Any
 
 import yaml
 
-
 # Required top-level fields in any valid RoE document
 ROE_REQUIRED_FIELDS = [
     "engagement_id",
@@ -66,7 +65,7 @@ def validate_roe_file(
 
     # 3. Parse YAML
     try:
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             data = yaml.safe_load(f)
     except yaml.YAMLError as e:
         return False, f"RoE YAML parse error: {e}", {}

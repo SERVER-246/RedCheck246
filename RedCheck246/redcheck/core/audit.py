@@ -51,7 +51,7 @@ class AuditLogger:
         if not self._log_path.exists():
             return "GENESIS"
         try:
-            with open(self._log_path, "r", encoding="utf-8") as f:
+            with open(self._log_path, encoding="utf-8") as f:
                 lines = f.readlines()
             for line in reversed(lines):
                 line = line.strip()
@@ -99,9 +99,7 @@ class AuditLogger:
 
         return entry
 
-    def log_policy_denial(
-        self, plugin: str, reason: str, engagement_id: str = ""
-    ) -> dict:
+    def log_policy_denial(self, plugin: str, reason: str, engagement_id: str = "") -> dict:
         return self.log(
             action="POLICY_DENIED",
             details=reason,
@@ -118,9 +116,7 @@ class AuditLogger:
             level="INFO" if success else "WARN",
         )
 
-    def log_engagement_action(
-        self, action: str, engagement_id: str, details: str = ""
-    ) -> dict:
+    def log_engagement_action(self, action: str, engagement_id: str, details: str = "") -> dict:
         return self.log(
             action=action,
             details=details,
@@ -136,14 +132,28 @@ class AuditLogger:
             return True, 0, "No audit log found"
 
         entries = []
-        with open(self._log_path, "r", encoding="utf-8") as f:
+        with open(self._log_path, encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
-                if line and not line.startswith(("===", "---", "Timestamp", "Branch",
-                                                  "HEAD", "On branch", "Untracked",
-                                                  "(use", "nothing", "Python", "pip",
-                                                  "Isolated", "Activation", "origin",
-                                                  "Phase")):
+                if line and not line.startswith(
+                    (
+                        "===",
+                        "---",
+                        "Timestamp",
+                        "Branch",
+                        "HEAD",
+                        "On branch",
+                        "Untracked",
+                        "(use",
+                        "nothing",
+                        "Python",
+                        "pip",
+                        "Isolated",
+                        "Activation",
+                        "origin",
+                        "Phase",
+                    )
+                ):
                     try:
                         entries.append(json.loads(line))
                     except json.JSONDecodeError:
@@ -164,7 +174,11 @@ class AuditLogger:
             if entry.get("previous_hash") != prev_hash:
                 return False, i, f"Chain break at entry {i}: expected prev_hash={prev_hash}"
             if stored_hash != computed:
-                return False, i, f"Hash mismatch at entry {i}: stored={stored_hash} computed={computed}"
+                return (
+                    False,
+                    i,
+                    f"Hash mismatch at entry {i}: stored={stored_hash} computed={computed}",
+                )
             prev_hash = stored_hash
 
         return True, len(entries), f"Chain valid: {len(entries)} entries verified"

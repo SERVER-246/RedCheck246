@@ -28,5 +28,8 @@ class SupplyChainPlugin(BasePlugin):
         return PluginResult(
             plugin_name=self.name,
             success=True,
-            metadata={"mode": "dry-run", "description": "Would audit dependency tree for vulnerabilities"},
+            metadata={
+                "mode": "dry-run",
+                "description": "Would audit dependency tree for vulnerabilities",
+            },
         )

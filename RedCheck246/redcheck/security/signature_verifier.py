@@ -10,7 +10,6 @@ import hashlib
 import hmac
 import json
 from pathlib import Path
-from typing import Any
 
 import yaml
 
@@ -61,7 +60,7 @@ class SignatureVerifier:
         if not path.exists():
             return False, f"RoE file not found: {path}"
 
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             data = yaml.safe_load(f) or {}
 
         stored_sig = data.get("signature", "")
@@ -101,7 +100,7 @@ class SignatureVerifier:
         """Extract canonical content from RoE (all fields except 'signature'),
         serialized as sorted JSON for deterministic hashing.
         """
-        with open(roe_path, "r", encoding="utf-8") as f:
+        with open(roe_path, encoding="utf-8") as f:
             data = yaml.safe_load(f) or {}
 
         # Remove signature for canonical form

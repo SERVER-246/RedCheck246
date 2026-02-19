@@ -124,13 +124,15 @@ class PluginRegistry:
         """List all registered plugins with metadata."""
         result = []
         for name, plugin_class in sorted(cls._plugins.items()):
-            result.append({
-                "name": name,
-                "version": getattr(plugin_class, "version", "0.0.0"),
-                "description": getattr(plugin_class, "description", ""),
-                "requires_authorization": getattr(plugin_class, "requires_authorization", True),
-                "category": getattr(plugin_class, "category", "general"),
-            })
+            result.append(
+                {
+                    "name": name,
+                    "version": getattr(plugin_class, "version", "0.0.0"),
+                    "description": getattr(plugin_class, "description", ""),
+                    "requires_authorization": getattr(plugin_class, "requires_authorization", True),
+                    "category": getattr(plugin_class, "category", "general"),
+                }
+            )
         return result
 
     @classmethod

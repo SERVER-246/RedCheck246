@@ -29,7 +29,11 @@ class ActivationEngine:
     The activation code is NEVER stored in plaintext.
     """
 
-    def __init__(self, activation_path: str | Path | None = None, base_dir: str | Path | None = None):
+    def __init__(
+        self,
+        activation_path: str | Path | None = None,
+        base_dir: str | Path | None = None,
+    ):
         if activation_path:
             self._path = Path(activation_path)
         elif base_dir:
@@ -126,7 +130,7 @@ class ActivationEngine:
             return False
 
         try:
-            with open(self._path, "r", encoding="utf-8") as f:
+            with open(self._path, encoding="utf-8") as f:
                 data = json.load(f)
         except (json.JSONDecodeError, OSError) as e:
             self.audit.log(

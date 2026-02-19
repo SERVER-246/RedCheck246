@@ -1,8 +1,9 @@
 """Tests for RoE validator and signature verifier."""
 
+from datetime import datetime, timedelta, timezone
+
 import pytest
 import yaml
-from datetime import datetime, timedelta, timezone
 
 from redcheck.security.roe_validator import validate_roe_file
 from redcheck.security.signature_verifier import SignatureVerifier
@@ -61,12 +62,12 @@ class TestRoEValidator:
 
 class TestSignatureVerifier:
     def test_sign_and_verify(self, valid_roe):
-        sv = SignatureVerifier(secret="test-secret-key-246")
+        sv = SignatureVerifier(secret="test-secret-key-246")  # noqa: S106
         sig = sv.sign_roe(valid_roe)
         assert len(sig) == 64  # SHA-256 hex
 
         # Write signature back
-        with open(valid_roe, "r") as f:
+        with open(valid_roe) as f:
             data = yaml.safe_load(f)
         data["signature"] = sig
         with open(valid_roe, "w") as f:
@@ -76,10 +77,10 @@ class TestSignatureVerifier:
         assert ok is True
 
     def test_tampered_roe_fails(self, valid_roe):
-        sv = SignatureVerifier(secret="test-secret-key-246")
+        sv = SignatureVerifier(secret="test-secret-key-246")  # noqa: S106
         sig = sv.sign_roe(valid_roe)
 
-        with open(valid_roe, "r") as f:
+        with open(valid_roe) as f:
             data = yaml.safe_load(f)
         data["signature"] = sig
         data["authorizer"] = "TAMPERED"
@@ -96,7 +97,7 @@ class TestSignatureVerifier:
         assert ok is False
 
     def test_evidence_signing(self):
-        sv = SignatureVerifier(secret="evidence-key")
+        sv = SignatureVerifier(secret="evidence-key")  # noqa: S106
         data = b"critical finding data"
         sig = sv.sign_evidence(data)
         assert sv.verify_evidence(data, sig) is True

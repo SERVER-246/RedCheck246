@@ -1,6 +1,9 @@
 [build-system]
 requires = ["setuptools>=68.0", "wheel"]
-build-backend = "setuptools.backends._legacy:_Backend"
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["redcheck*"]
 
 [project]
 name = "redcheck246"
@@ -8,7 +11,7 @@ version = "0.1.0"
 description = "Policy-gated, plugin-based security assessment framework"
 readme = "README.md"
 requires-python = ">=3.10"
-license = {text = "Proprietary"}
+license = "Proprietary"
 authors = [
     {name = "SERVER-246", email = "server246@redcheck.dev"},
 ]

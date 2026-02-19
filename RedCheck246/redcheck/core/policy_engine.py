@@ -55,7 +55,7 @@ class PolicyEngine:
             return False, f"RoE file not found: {roe_path}", {}
 
         try:
-            with open(roe_path, "r", encoding="utf-8") as f:
+            with open(roe_path, encoding="utf-8") as f:
                 roe = yaml.safe_load(f)
         except yaml.YAMLError as e:
             return False, f"Invalid YAML in RoE: {e}", {}
@@ -166,7 +166,10 @@ class PolicyEngine:
         allowed_tests = eng_data.get("allowed_tests", [])
         plugin_category = plugin_name.split(".")[0] if "." in plugin_name else plugin_name
         if allowed_tests and plugin_category not in allowed_tests:
-            return False, f"Plugin category '{plugin_category}' not in allowed tests: {allowed_tests}"
+            return (
+                False,
+                f"Plugin category '{plugin_category}' not in allowed tests: {allowed_tests}",
+            )
 
         # Check time window
         start_str = eng_data.get("start_time_utc")
@@ -197,9 +200,7 @@ class PolicyEngine:
 
         This is the primary gate. Every active plugin MUST call this.
         """
-        allowed, reason = self.is_action_allowed(
-            plugin_name, engagement, requires_authorization
-        )
+        allowed, reason = self.is_action_allowed(plugin_name, engagement, requires_authorization)
 
         if not allowed:
             self.audit.log_policy_denial(
@@ -218,9 +219,7 @@ class PolicyEngine:
             details=f"Plugin '{plugin_name}' authorized",
             plugin=plugin_name,
             engagement_id=str(
-                (engagement or {}).get("engagement_id", "")
-                if isinstance(engagement, dict)
-                else ""
+                (engagement or {}).get("engagement_id", "") if isinstance(engagement, dict) else ""
             ),
         )
 

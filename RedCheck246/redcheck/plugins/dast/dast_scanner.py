@@ -28,5 +28,8 @@ class DASTPlugin(BasePlugin):
         return PluginResult(
             plugin_name=self.name,
             success=True,
-            metadata={"mode": "dry-run", "description": "Would scan running application for vulnerabilities"},
+            metadata={
+                "mode": "dry-run",
+                "description": "Would scan running application for vulnerabilities",
+            },
         )

@@ -6,7 +6,6 @@ and ensures all policy gates are enforced.
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -14,7 +13,7 @@ import yaml
 
 from redcheck.core.audit import get_audit_logger
 from redcheck.core.policy_engine import PolicyDeniedException, get_policy_engine
-from redcheck.plugins.base_plugin import BasePlugin, PluginRegistry, PluginResult
+from redcheck.plugins.base_plugin import PluginRegistry, PluginResult
 
 
 @dataclass
@@ -56,7 +55,7 @@ class EngagementContext:
     def from_yaml(cls, path: str | Path) -> "EngagementContext":
         """Load engagement context from a YAML file."""
         path = Path(path)
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             data = yaml.safe_load(f) or {}
         return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
 
@@ -213,7 +212,9 @@ class Orchestrator:
 
         self.audit.log(
             action="PLUGIN_COMPLETE",
-            details=f"Plugin {plugin_name}: success={result.success}, findings={len(result.findings)}",
+            details=(
+                f"Plugin {plugin_name}: success={result.success}, findings={len(result.findings)}"
+            ),
             plugin=plugin_name,
             engagement_id=context.get("engagement_id", ""),
         )

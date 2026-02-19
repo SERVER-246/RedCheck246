@@ -1,9 +1,6 @@
 """Tests for PolicyEngine — denial, authorization, and RoE validation."""
 
-import os
-import tempfile
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 
 import pytest
 import yaml
@@ -24,9 +21,7 @@ def valid_roe_file(tmp_path):
     roe = {
         "engagement_id": "TEST-001",
         "authorizer": "Test Admin",
-        "authorized_targets": [
-            {"host": "testhost.local", "ports": [80, 443]}
-        ],
+        "authorized_targets": [{"host": "testhost.local", "ports": [80, 443]}],
         "allowed_tests": ["passive-recon", "sast-scanner"],
         "start_time_utc": (now - timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "end_time_utc": (now + timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%SZ"),

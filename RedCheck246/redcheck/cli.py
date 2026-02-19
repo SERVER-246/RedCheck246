@@ -21,15 +21,15 @@ import yaml
 from redcheck import __version__
 from redcheck.core.activation_engine import ActivationEngine
 from redcheck.core.audit import get_audit_logger
-from redcheck.core.orchestrator import EngagementContext, Orchestrator
+from redcheck.core.orchestrator import Orchestrator
 from redcheck.core.policy_engine import PolicyDeniedException, get_policy_engine
 
 # Import plugins to trigger auto-registration
 from redcheck.plugins.base_plugin import PluginRegistry
-from redcheck.plugins.recon.passive_recon import PassiveReconPlugin  # noqa: F401
-from redcheck.plugins.sast.sast_scanner import SASTPlugin  # noqa: F401
 from redcheck.plugins.dast.dast_scanner import DASTPlugin  # noqa: F401
 from redcheck.plugins.fuzzing.protocol_fuzzer import FuzzingPlugin  # noqa: F401
+from redcheck.plugins.recon.passive_recon import PassiveReconPlugin  # noqa: F401
+from redcheck.plugins.sast.sast_scanner import SASTPlugin  # noqa: F401
 from redcheck.plugins.supply_chain.supply_chain_audit import SupplyChainPlugin  # noqa: F401
 
 
@@ -39,9 +39,7 @@ def build_parser() -> argparse.ArgumentParser:
         prog="redcheck",
         description="RedCheck246 — Policy-gated security assessment framework",
     )
-    parser.add_argument(
-        "--version", action="version", version=f"RedCheck246 v{__version__}"
-    )
+    parser.add_argument("--version", action="version", version=f"RedCheck246 v{__version__}")
 
     sub = parser.add_subparsers(dest="command", help="Available commands")
 
@@ -71,12 +69,16 @@ def build_parser() -> argparse.ArgumentParser:
     # --- activate ---
     p_act = sub.add_parser("activate", help="Set or verify activation code")
     p_act.add_argument(
-        "--set", action="store_true", dest="set_code",
-        help="Set a new activation code (prompted securely)"
+        "--set",
+        action="store_true",
+        dest="set_code",
+        help="Set a new activation code (prompted securely)",
     )
     p_act.add_argument(
-        "--verify", action="store_true", dest="verify_code",
-        help="Verify an existing activation code"
+        "--verify",
+        action="store_true",
+        dest="verify_code",
+        help="Verify an existing activation code",
     )
 
     # --- status ---
@@ -102,9 +104,7 @@ def cmd_init(args: argparse.Namespace) -> int:
     roe_template = {
         "engagement_id": args.name,
         "authorizer": "CHANGE_ME",
-        "authorized_targets": [
-            {"host": "example.com", "ports": [80, 443], "protocols": ["tcp"]}
-        ],
+        "authorized_targets": [{"host": "example.com", "ports": [80, 443], "protocols": ["tcp"]}],
         "allowed_tests": ["passive-recon", "sast-scanner"],
         "start_time_utc": "2025-01-01T00:00:00Z",
         "end_time_utc": "2025-12-31T23:59:59Z",
@@ -129,8 +129,8 @@ def cmd_init(args: argparse.Namespace) -> int:
 
     print(f"[+] Engagement initialized: {base}")
     print(f"    RoE template: {roe_path}")
-    print(f"    Edit roe.yaml before running any active scans.")
-    print(f"    Directories: evidence/, reports/, logs/, scans/")
+    print("    Edit roe.yaml before running any active scans.")
+    print("    Directories: evidence/, reports/, logs/, scans/")
 
     audit = get_audit_logger()
     audit.log(action="ENGAGEMENT_INIT", details=f"Created engagement: {args.name}")
@@ -153,7 +153,7 @@ def _run_plugin(plugin_name: str, roe_path: str, dry_run: bool) -> int:
     orch = Orchestrator()
 
     try:
-        ctx = orch.load_engagement(roe_path)
+        orch.load_engagement(roe_path)
     except PolicyDeniedException as e:
         print(f"[POLICY DENIED] {e}")
         return 2
@@ -166,6 +166,7 @@ def _run_plugin(plugin_name: str, roe_path: str, dry_run: bool) -> int:
             return 3
 
         import getpass
+
         code = getpass.getpass("[?] Enter activation code: ")
         if not orch.activate(code):
             print("[DENIED] Invalid activation code.")
@@ -178,7 +179,7 @@ def _run_plugin(plugin_name: str, roe_path: str, dry_run: bool) -> int:
         return 2
 
     # Output results
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"Plugin: {result.plugin_name}")
     print(f"Success: {result.success}")
     if result.findings:
@@ -186,12 +187,12 @@ def _run_plugin(plugin_name: str, roe_path: str, dry_run: bool) -> int:
         for f in result.findings:
             print(f"  - [{f.get('type', '?')}] {f.get('target', '?')}: {f.get('detail', '')}")
     if result.errors:
-        print(f"Errors:")
+        print("Errors:")
         for e in result.errors:
             print(f"  ! {e}")
     if result.metadata:
         print(f"Metadata: {json.dumps(result.metadata, indent=2)}")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
     orch.shutdown()
     return 0 if result.success else 1
@@ -272,7 +273,7 @@ def cmd_activate(args: argparse.Namespace) -> int:
 def cmd_status(args: argparse.Namespace) -> int:
     """Show framework status."""
     print(f"\nRedCheck246 v{__version__}")
-    print(f"{'='*40}")
+    print(f"{'=' * 40}")
 
     # Activation
     engine = ActivationEngine()
@@ -292,7 +293,7 @@ def cmd_status(args: argparse.Namespace) -> int:
     log_path = Path(audit.log_path) if hasattr(audit, "log_path") else Path("logs/audit.log")
     print(f"Audit log:  {log_path} ({'exists' if log_path.exists() else 'not found'})")
 
-    print(f"{'='*40}")
+    print(f"{'=' * 40}")
     return 0
 
 
