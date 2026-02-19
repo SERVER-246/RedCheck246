@@ -1,0 +1,46 @@
+# RedCheck246 — Engagement Template
+#
+# Copy this file to your engagement directory and fill in all CHANGE_ME values.
+# This is the Rules of Engagement (RoE) document that gates all active operations.
+
+engagement_id: "ENG-001-TEMPLATE"
+authorizer: "CHANGE_ME — Name of the sole authorized person"
+
+authorized_targets:
+  - host: "example.com"
+    ports: [80, 443]
+    protocols: ["tcp"]
+  - host: "10.0.0.0/24"
+    ports: [22, 80, 443, 8080]
+    protocols: ["tcp", "udp"]
+
+allowed_tests:
+  - passive-recon
+  - sast-scanner
+  # Uncomment to enable active testing:
+  # - dast-scanner
+  # - protocol-fuzzer
+  # - supply-chain-audit
+
+start_time_utc: "2025-01-01T00:00:00Z"
+end_time_utc: "2025-12-31T23:59:59Z"
+
+sensitivity: "high"
+
+contact:
+  name: "CHANGE_ME"
+  email: "change@me.com"
+  phone: "+1-000-000-0000"
+
+exclusions:
+  - "*.prod.internal"
+  - "database-*.example.com"
+
+notes: |
+  - All testing must remain within the authorized time window.
+  - No denial-of-service testing permitted unless explicitly approved.
+  - Evidence must be encrypted at rest.
+  - Report findings within 24 hours of discovery.
+
+# HMAC-SHA256 signature — set via 'redcheck verify-roe' or manually
+signature: ""
