@@ -85,9 +85,17 @@ class PolicyEngine:
             return False, "authorized_targets must be a non-empty list", {}
 
         # Validate time window
+        # Replace trailing 'Z' with '+00:00' for Python 3.10 compat
+        # (fromisoformat only learned the 'Z' suffix in 3.11)
         try:
-            start = datetime.fromisoformat(str(roe["start_time_utc"]))
-            end = datetime.fromisoformat(str(roe["end_time_utc"]))
+            raw_start = str(roe["start_time_utc"])
+            raw_end = str(roe["end_time_utc"])
+            if raw_start.endswith("Z"):
+                raw_start = raw_start[:-1] + "+00:00"
+            if raw_end.endswith("Z"):
+                raw_end = raw_end[:-1] + "+00:00"
+            start = datetime.fromisoformat(raw_start)
+            end = datetime.fromisoformat(raw_end)
         except (ValueError, TypeError) as e:
             return False, f"Invalid time format in RoE: {e}", {}
 
