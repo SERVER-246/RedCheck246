@@ -1,15 +1,19 @@
-"""
-RedCheck246 — Rules of Engagement (RoE) Validator
+"""RedCheck246 — Rules of Engagement (RoE) Validator.
 
 Validates RoE YAML documents for structural integrity, required fields,
 time window validity, and optional signature verification.
 """
 
+from __future__ import annotations
+
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+import structlog
 import yaml
+
+log = structlog.get_logger(__name__)
 
 # Required top-level fields in any valid RoE document
 ROE_REQUIRED_FIELDS = [
@@ -21,7 +25,7 @@ ROE_REQUIRED_FIELDS = [
     "end_time_utc",
 ]
 
-# Optional but recognized fields
+# Optional but recognised fields
 ROE_OPTIONAL_FIELDS = [
     "sensitivity",
     "contact",
@@ -32,28 +36,19 @@ ROE_OPTIONAL_FIELDS = [
 ]
 
 
-class RoEValidationError(Exception):
-    """Raised when RoE validation fails."""
-
-    def __init__(self, message: str, field: str = ""):
-        self.field = field
-        super().__init__(message)
-
-
 def validate_roe_file(
     path: str | Path,
 ) -> tuple[bool, str, dict[str, Any]]:
     """Validate an RoE YAML file.
 
-    Returns: (valid, message, roe_data)
-        - valid: True if all checks pass
-        - message: Human-readable result
-        - roe_data: Parsed RoE dict (empty if invalid)
+    Returns ``(valid, message, roe_data)`` where *roe_data* is the parsed
+    dict on success or an empty dict on failure.
     """
     path = Path(path)
 
     # 1. File existence
     if not path.exists():
+        log.warning("roe_not_found", path=str(path))
         return False, f"RoE file not found: {path}", {}
 
     if not path.is_file():
@@ -67,8 +62,9 @@ def validate_roe_file(
     try:
         with open(path, encoding="utf-8") as f:
             data = yaml.safe_load(f)
-    except yaml.YAMLError as e:
-        return False, f"RoE YAML parse error: {e}", {}
+    except yaml.YAMLError as exc:
+        log.error("roe_parse_error", path=str(path), error=str(exc))
+        return False, f"RoE YAML parse error: {exc}", {}
 
     if not isinstance(data, dict):
         return False, "RoE must be a YAML mapping (dict), not a list or scalar", {}
@@ -98,8 +94,8 @@ def validate_roe_file(
     try:
         start = _parse_datetime(data["start_time_utc"])
         end = _parse_datetime(data["end_time_utc"])
-    except (ValueError, TypeError) as e:
-        return False, f"Invalid date format in RoE: {e}", {}
+    except (ValueError, TypeError) as exc:
+        return False, f"Invalid date format in RoE: {exc}", {}
 
     if end <= start:
         return False, "RoE end_time_utc must be after start_time_utc", {}
@@ -125,6 +121,12 @@ def validate_roe_file(
     if not has_signature:
         message += " (WARNING: no signature field — signature verification skipped)"
 
+    log.info(
+        "roe_validated",
+        engagement_id=data.get("engagement_id"),
+        authorizer=data.get("authorizer"),
+        has_signature=has_signature,
+    )
     return True, message, data
 
 
@@ -136,16 +138,18 @@ def _parse_datetime(value: Any) -> datetime:
         return value
 
     if isinstance(value, str):
-        # Try ISO format
         value = value.strip()
+        # Handle Z suffix for Python 3.10 compat
+        if value.endswith("Z"):
+            value = value[:-1] + "+00:00"
         for fmt in (
-            "%Y-%m-%dT%H:%M:%SZ",
             "%Y-%m-%dT%H:%M:%S%z",
+            "%Y-%m-%dT%H:%M:%SZ",
             "%Y-%m-%d %H:%M:%S",
             "%Y-%m-%dT%H:%M:%S",
         ):
             try:
-                dt = datetime.strptime(value, fmt)
+                dt = datetime.strptime(value, fmt)  # noqa: DTZ007
                 if dt.tzinfo is None:
                     dt = dt.replace(tzinfo=timezone.utc)
                 return dt

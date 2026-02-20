@@ -19,7 +19,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.13"
 
       - name: Install dependencies
         run: |
@@ -36,12 +36,17 @@ jobs:
           cd RedCheck246
           ruff format --check redcheck/ tests/
 
+      - name: Mypy type check
+        run: |
+          cd RedCheck246
+          mypy --strict redcheck/ || true
+
   test:
-    name: Tests
+    name: Tests (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.10", "3.11", "3.12"]
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
 
@@ -58,7 +63,14 @@ jobs:
       - name: Run tests
         run: |
           cd RedCheck246
-          pytest --cov=redcheck --cov-report=term-missing tests/
+          pytest --cov=redcheck --cov-report=xml --cov-report=term-missing tests/ -v
+
+      - name: Upload coverage
+        if: matrix.python-version == '3.13'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: RedCheck246/coverage.xml
 
   security:
     name: Security Scan
@@ -69,12 +81,13 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.13"
 
       - name: Install dependencies
         run: |
           cd RedCheck246
           pip install -e ".[dev]"
+          pip install pip-audit
 
       - name: Bandit security scan
         run: |
@@ -82,9 +95,13 @@ jobs:
           bandit -r redcheck/ -c pyproject.toml -f json -o bandit-report.json || true
           bandit -r redcheck/ -c pyproject.toml
 
+      - name: pip-audit (dependency CVEs)
+        run: |
+          cd RedCheck246
+          pip-audit --strict || true
+
       - name: Secret detection
         run: |
-          # Check for potential hardcoded secrets
           echo "Scanning for potential secrets..."
           grep -rn "password\s*=\s*['\"]" RedCheck246/redcheck/ && echo "WARNING: Possible hardcoded passwords found" && exit 1 || echo "No hardcoded passwords detected"
           grep -rn "secret\s*=\s*['\"][^'\"]*['\"]" RedCheck246/redcheck/ | grep -v "test" | grep -v "#" && echo "WARNING: Possible hardcoded secrets found" && exit 1 || echo "No hardcoded secrets detected"
@@ -99,7 +116,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.13"
 
       - name: Install build tools
         run: pip install build
@@ -114,3 +131,24 @@ jobs:
         with:
           name: redcheck246-dist
           path: RedCheck246/dist/
+
+  docker:
+    name: Docker Build
+    runs-on: ubuntu-latest
+    needs: [build]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build runtime image
+        run: |
+          cd RedCheck246
+          docker build --target runtime -t redcheck246:latest .
+
+      - name: Build dev image
+        run: |
+          cd RedCheck246
+          docker build --target dev -t redcheck246:dev .
+
+      - name: Smoke test
+        run: |
+          docker run --rm redcheck246:latest --version

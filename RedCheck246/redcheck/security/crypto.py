@@ -1,9 +1,10 @@
-"""
-RedCheck246 — Cryptographic Utilities
+"""RedCheck246 — Cryptographic Utilities.
 
 Evidence encryption, key derivation, and secure hashing.
-Uses AES-256-GCM for evidence encryption.
+Uses AES-256-GCM for evidence encryption (``cryptography`` is a hard dependency).
 """
+
+from __future__ import annotations
 
 import base64
 import hashlib
@@ -11,6 +12,13 @@ import hmac
 import os
 import secrets
 from pathlib import Path
+
+import structlog
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
+from redcheck.exceptions import CryptoError
+
+log = structlog.get_logger(__name__)
 
 
 class CryptoEngine:
@@ -21,16 +29,16 @@ class CryptoEngine:
     NONCE_SIZE = 12  # 96-bit for AES-GCM
     PBKDF2_ITERATIONS = 600_000
 
+    # ---- Key Derivation -------------------------------------------------
+
     @staticmethod
     def derive_key(passphrase: str, salt: bytes | None = None) -> tuple[bytes, bytes]:
         """Derive an AES-256 key from a passphrase using PBKDF2-HMAC-SHA512.
 
-        Args:
-            passphrase: The passphrase to derive from.
-            salt: Optional salt; random generated if not provided.
-
-        Returns: (key, salt) tuple.
+        Returns ``(key, salt)`` tuple.
         """
+        if not passphrase:
+            raise CryptoError("Passphrase must not be empty")
         if salt is None:
             salt = os.urandom(CryptoEngine.SALT_SIZE)
         key = hashlib.pbkdf2_hmac(
@@ -41,6 +49,8 @@ class CryptoEngine:
             dklen=CryptoEngine.KEY_SIZE,
         )
         return key, salt
+
+    # ---- Hashing --------------------------------------------------------
 
     @staticmethod
     def hash_sha256(data: bytes) -> str:
@@ -58,18 +68,18 @@ class CryptoEngine:
         return hmac.new(key, data, hashlib.sha256).hexdigest()
 
     @staticmethod
-    def generate_random_token(length: int = 32) -> str:
-        """Generate a cryptographically secure random hex token."""
-        return secrets.token_hex(length)
-
-    @staticmethod
     def hash_file(filepath: str | Path) -> str:
         """Calculate SHA-256 hash of a file (streaming, memory-safe)."""
+        filepath = Path(filepath)
+        if not filepath.is_file():
+            raise CryptoError(f"File not found: {filepath}")
         h = hashlib.sha256()
         with open(filepath, "rb") as f:
             for chunk in iter(lambda: f.read(8192), b""):
                 h.update(chunk)
         return h.hexdigest()
+
+    # ---- Encoding -------------------------------------------------------
 
     @staticmethod
     def encode_b64(data: bytes) -> str:
@@ -79,33 +89,39 @@ class CryptoEngine:
     @staticmethod
     def decode_b64(data: str) -> bytes:
         """Base64 decode string to bytes."""
-        return base64.b64decode(data)
+        try:
+            return base64.b64decode(data)
+        except Exception as exc:
+            raise CryptoError(f"Base64 decode failed: {exc}") from exc
+
+    # ---- Utilities ------------------------------------------------------
+
+    @staticmethod
+    def generate_random_token(length: int = 32) -> str:
+        """Generate a cryptographically secure random hex token."""
+        return secrets.token_hex(length)
 
     @staticmethod
     def secure_compare(a: str, b: str) -> bool:
         """Timing-safe string comparison."""
         return hmac.compare_digest(a.encode("utf-8"), b.encode("utf-8"))
 
+    # ---- AES-256-GCM Evidence Encryption --------------------------------
+
     @staticmethod
-    def encrypt_evidence(
-        plaintext: bytes,
-        passphrase: str,
-    ) -> dict[str, str]:
-        """Encrypt evidence data using AES-256-GCM via PBKDF2-derived key.
+    def encrypt_evidence(plaintext: bytes, passphrase: str) -> dict[str, str | int]:
+        """Encrypt evidence data using AES-256-GCM.
 
-        Note: Requires the 'cryptography' package for AES-GCM.
-        Falls back to XOR-based obfuscation if unavailable (NOT secure — dev only).
-
-        Returns: Dict with {ciphertext, salt, nonce, tag} all base64-encoded.
+        Returns a dict with ``{algorithm, ciphertext, salt, nonce, kdf, iterations}``
+        — all byte values base64-encoded.
         """
         try:
-            from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-
             key, salt = CryptoEngine.derive_key(passphrase)
             nonce = os.urandom(CryptoEngine.NONCE_SIZE)
             aesgcm = AESGCM(key)
             ct = aesgcm.encrypt(nonce, plaintext, None)
 
+            log.debug("evidence_encrypted", size=len(plaintext))
             return {
                 "algorithm": "AES-256-GCM",
                 "ciphertext": CryptoEngine.encode_b64(ct),
@@ -114,45 +130,31 @@ class CryptoEngine:
                 "kdf": "PBKDF2-HMAC-SHA512",
                 "iterations": CryptoEngine.PBKDF2_ITERATIONS,
             }
-        except ImportError:
-            # Dev-only fallback — NOT secure, just prevents plaintext storage
-            key, salt = CryptoEngine.derive_key(passphrase)
-            obfuscated = bytes(b ^ key[i % len(key)] for i, b in enumerate(plaintext))
-            return {
-                "algorithm": "XOR-OBFUSCATION-DEV-ONLY",
-                "ciphertext": CryptoEngine.encode_b64(obfuscated),
-                "salt": CryptoEngine.encode_b64(salt),
-                "nonce": "",
-                "kdf": "PBKDF2-HMAC-SHA512",
-                "iterations": CryptoEngine.PBKDF2_ITERATIONS,
-                "WARNING": "NOT SECURE — install 'cryptography' package",
-            }
+        except CryptoError:
+            raise
+        except Exception as exc:
+            raise CryptoError(f"Encryption failed: {exc}") from exc
 
     @staticmethod
-    def decrypt_evidence(
-        encrypted: dict[str, str],
-        passphrase: str,
-    ) -> bytes:
-        """Decrypt evidence data.
+    def decrypt_evidence(encrypted: dict[str, str], passphrase: str) -> bytes:
+        """Decrypt evidence data previously encrypted with ``encrypt_evidence()``.
 
-        Args:
-            encrypted: Dict from encrypt_evidence().
-            passphrase: The passphrase used for encryption.
-
-        Returns: Decrypted plaintext bytes.
+        Raises ``CryptoError`` on any failure (wrong passphrase, corrupt data, etc.).
         """
-        salt = CryptoEngine.decode_b64(encrypted["salt"])
-        key, _ = CryptoEngine.derive_key(passphrase, salt)
+        algo = encrypted.get("algorithm", "")
+        if algo != "AES-256-GCM":
+            raise CryptoError(f"Unsupported algorithm: {algo}")
 
-        if encrypted["algorithm"] == "AES-256-GCM":
-            from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-
+        try:
+            salt = CryptoEngine.decode_b64(encrypted["salt"])
             nonce = CryptoEngine.decode_b64(encrypted["nonce"])
             ct = CryptoEngine.decode_b64(encrypted["ciphertext"])
+            key, _ = CryptoEngine.derive_key(passphrase, salt)
             aesgcm = AESGCM(key)
-            return aesgcm.decrypt(nonce, ct, None)
-        elif encrypted["algorithm"] == "XOR-OBFUSCATION-DEV-ONLY":
-            obfuscated = CryptoEngine.decode_b64(encrypted["ciphertext"])
-            return bytes(b ^ key[i % len(key)] for i, b in enumerate(obfuscated))
-        else:
-            raise ValueError(f"Unknown algorithm: {encrypted['algorithm']}")
+            plaintext = aesgcm.decrypt(nonce, ct, None)
+            log.debug("evidence_decrypted", size=len(plaintext))
+            return plaintext
+        except CryptoError:
+            raise
+        except Exception as exc:
+            raise CryptoError(f"Decryption failed: {exc}") from exc

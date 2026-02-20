@@ -5,7 +5,8 @@ from datetime import datetime, timedelta, timezone
 import pytest
 import yaml
 
-from redcheck.core.policy_engine import PolicyDeniedException, PolicyEngine
+from redcheck.core.policy_engine import PolicyEngine
+from redcheck.exceptions import PolicyDeniedException
 
 
 @pytest.fixture
@@ -106,4 +107,6 @@ class TestPolicyEngine:
         ok, msg = ae.set_code("Test@Code123!")
         assert ok is True
         assert ae.verify_code("Test@Code123!")
+        # Reset rate-limiting state so rapid sequential calls don't trigger cooldown
+        ae._last_attempt = 0.0
         assert not ae.verify_code("wrong-code")

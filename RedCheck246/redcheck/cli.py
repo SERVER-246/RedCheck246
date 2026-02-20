@@ -1,5 +1,4 @@
-"""
-RedCheck246 — Command-Line Interface
+"""RedCheck246 — Command-Line Interface (Typer + Rich).
 
 Commands:
   init            Initialize a new engagement directory
@@ -11,18 +10,31 @@ Commands:
   status          Show current framework status
 """
 
-import argparse
+from __future__ import annotations
+
 import json
 import sys
 from pathlib import Path
 
+import typer
 import yaml
+from rich.console import Console
 
 from redcheck import __version__
 from redcheck.core.activation_engine import ActivationEngine
 from redcheck.core.audit import get_audit_logger
 from redcheck.core.orchestrator import Orchestrator
-from redcheck.core.policy_engine import PolicyDeniedException, get_policy_engine
+from redcheck.core.policy_engine import get_policy_engine
+from redcheck.exceptions import PolicyDeniedException
+from redcheck.output import (
+    console as out,
+)
+from redcheck.output import (
+    format_plugin_list,
+    format_scan_result,
+    format_status,
+    print_banner,
+)
 
 # Import plugins to trigger auto-registration
 from redcheck.plugins.base_plugin import PluginRegistry
@@ -32,77 +44,67 @@ from redcheck.plugins.recon.passive_recon import PassiveReconPlugin  # noqa: F40
 from redcheck.plugins.sast.sast_scanner import SASTPlugin  # noqa: F401
 from redcheck.plugins.supply_chain.supply_chain_audit import SupplyChainPlugin  # noqa: F401
 
+app = typer.Typer(
+    name="redcheck",
+    help="RedCheck246 — Policy-gated security assessment framework",
+    add_completion=True,
+    no_args_is_help=True,
+)
 
-def build_parser() -> argparse.ArgumentParser:
-    """Build the CLI argument parser."""
-    parser = argparse.ArgumentParser(
-        prog="redcheck",
-        description="RedCheck246 — Policy-gated security assessment framework",
-    )
-    parser.add_argument("--version", action="version", version=f"RedCheck246 v{__version__}")
+err = Console(stderr=True)
 
-    sub = parser.add_subparsers(dest="command", help="Available commands")
-
-    # --- init ---
-    p_init = sub.add_parser("init", help="Initialize a new engagement directory")
-    p_init.add_argument("name", help="Engagement name / ID")
-    p_init.add_argument("--dir", default=".", help="Parent directory (default: cwd)")
-
-    # --- recon ---
-    p_recon = sub.add_parser("recon", help="Run passive reconnaissance")
-    p_recon.add_argument("--roe", required=True, help="Path to RoE YAML file")
-    p_recon.add_argument("--dry-run", action="store_true", help="Simulate only")
-
-    # --- run ---
-    p_run = sub.add_parser("run", help="Execute a specific plugin")
-    p_run.add_argument("plugin", help="Plugin name to execute")
-    p_run.add_argument("--roe", required=True, help="Path to RoE YAML file")
-    p_run.add_argument("--dry-run", action="store_true", help="Simulate only")
-
-    # --- list-plugins ---
-    sub.add_parser("list-plugins", help="List all registered plugins")
-
-    # --- verify-roe ---
-    p_roe = sub.add_parser("verify-roe", help="Validate a Rules of Engagement file")
-    p_roe.add_argument("file", help="Path to RoE YAML file")
-
-    # --- activate ---
-    p_act = sub.add_parser("activate", help="Set or verify activation code")
-    p_act.add_argument(
-        "--set",
-        action="store_true",
-        dest="set_code",
-        help="Set a new activation code (prompted securely)",
-    )
-    p_act.add_argument(
-        "--verify",
-        action="store_true",
-        dest="verify_code",
-        help="Verify an existing activation code",
-    )
-
-    # --- status ---
-    sub.add_parser("status", help="Show framework status")
-
-    return parser
+# Global options
+_format: str = "text"
+_verbose: bool = False
 
 
-def cmd_init(args: argparse.Namespace) -> int:
+def version_callback(value: bool) -> None:
+    if value:
+        typer.echo(f"RedCheck246 v{__version__}")
+        raise typer.Exit()
+
+
+@app.callback()
+def global_options(
+    version: bool = typer.Option(
+        False,
+        "--version",
+        "-V",
+        callback=version_callback,
+        is_eager=True,
+        help="Show version",
+    ),
+    fmt: str = typer.Option("text", "--format", "-f", help="Output format: text or json"),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose output"),
+) -> None:
+    """RedCheck246 — Policy-gated security assessment framework."""
+    global _format, _verbose  # noqa: PLW0603
+    _format = fmt
+    _verbose = verbose
+
+
+# ---------------------------------------------------------------------------
+# init
+# ---------------------------------------------------------------------------
+
+
+@app.command()
+def init(
+    name: str = typer.Argument(..., help="Engagement name / ID"),
+    directory: str = typer.Option(".", "--dir", "-d", help="Parent directory"),
+) -> None:
     """Initialize a new engagement directory."""
-    base = Path(args.dir) / args.name
+    base = Path(directory) / name
     if base.exists():
-        print(f"[!] Directory already exists: {base}")
-        return 1
+        out.print(f"[red]✗[/red] Directory already exists: {base}")
+        raise typer.Exit(1)
 
     base.mkdir(parents=True)
-    (base / "evidence").mkdir()
-    (base / "reports").mkdir()
-    (base / "logs").mkdir()
-    (base / "scans").mkdir()
+    for sub in ("evidence", "reports", "logs", "scans"):
+        (base / sub).mkdir()
 
-    # Create template RoE
     roe_template = {
-        "engagement_id": args.name,
+        "engagement_id": name,
         "authorizer": "CHANGE_ME",
         "authorized_targets": [{"host": "example.com", "ports": [80, 443], "protocols": ["tcp"]}],
         "allowed_tests": ["passive-recon", "sast-scanner"],
@@ -112,224 +114,237 @@ def cmd_init(args: argparse.Namespace) -> int:
         "contact": {"name": "CHANGE_ME", "email": "change@me.com"},
         "signature": "",
     }
-
     roe_path = base / "roe.yaml"
     with open(roe_path, "w", encoding="utf-8") as f:
         yaml.dump(roe_template, f, default_flow_style=False, sort_keys=False)
 
-    # Create engagement config
-    config = {
-        "engagement_id": args.name,
-        "created_utc": "auto-generated",
-        "safety_mode": "dry-run",
-        "roe_file": "roe.yaml",
-    }
     with open(base / "engagement.yaml", "w", encoding="utf-8") as f:
-        yaml.dump(config, f, default_flow_style=False, sort_keys=False)
+        yaml.dump(
+            {"engagement_id": name, "safety_mode": "dry-run", "roe_file": "roe.yaml"},
+            f,
+            default_flow_style=False,
+        )
 
-    print(f"[+] Engagement initialized: {base}")
-    print(f"    RoE template: {roe_path}")
-    print("    Edit roe.yaml before running any active scans.")
-    print("    Directories: evidence/, reports/, logs/, scans/")
+    out.print(f"[green]✓[/green] Engagement initialized: [bold]{base}[/bold]")
+    out.print(f"  RoE template: {roe_path}")
+    out.print("  Edit roe.yaml before running any active scans.")
 
     audit = get_audit_logger()
-    audit.log(action="ENGAGEMENT_INIT", details=f"Created engagement: {args.name}")
-
-    return 0
+    audit.log(action="ENGAGEMENT_INIT", details=f"Created engagement: {name}")
 
 
-def cmd_recon(args: argparse.Namespace) -> int:
-    """Run passive recon plugin."""
-    return _run_plugin("passive-recon", args.roe, args.dry_run)
+# ---------------------------------------------------------------------------
+# recon
+# ---------------------------------------------------------------------------
 
 
-def cmd_run(args: argparse.Namespace) -> int:
-    """Run a named plugin."""
-    return _run_plugin(args.plugin, args.roe, args.dry_run)
+@app.command()
+def recon(
+    roe: str = typer.Option(..., "--roe", "-r", help="Path to RoE YAML file"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Simulate only"),
+) -> None:
+    """Run passive reconnaissance."""
+    _run_plugin_impl("passive-recon", roe, dry_run)
 
 
-def _run_plugin(plugin_name: str, roe_path: str, dry_run: bool) -> int:
+# ---------------------------------------------------------------------------
+# run
+# ---------------------------------------------------------------------------
+
+
+@app.command("run")
+def run_cmd(
+    plugin: str = typer.Argument(..., help="Plugin name to execute"),
+    roe: str = typer.Option(..., "--roe", "-r", help="Path to RoE YAML file"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Simulate only"),
+) -> None:
+    """Execute a specific plugin."""
+    _run_plugin_impl(plugin, roe, dry_run)
+
+
+def _run_plugin_impl(plugin_name: str, roe_path: str, dry_run: bool) -> None:
     """Common plugin execution logic."""
     orch = Orchestrator()
 
     try:
         orch.load_engagement(roe_path)
     except PolicyDeniedException as e:
-        print(f"[POLICY DENIED] {e}")
-        return 2
+        out.print(f"[red]✗ POLICY DENIED[/red] {e}")
+        raise typer.Exit(2) from None
 
     if not dry_run:
-        # Check activation
         activation = ActivationEngine()
         if not activation.is_configured:
-            print("[!] No activation code set. Run 'redcheck activate --set' first.")
-            return 3
-
-        import getpass
-
-        code = getpass.getpass("[?] Enter activation code: ")
+            out.print(
+                "[yellow]![/yellow] No activation code set. "
+                "Run [bold]redcheck activate --set[/bold] first."
+            )
+            raise typer.Exit(3)
+        code = typer.prompt("Enter activation code", hide_input=True)
         if not orch.activate(code):
-            print("[DENIED] Invalid activation code.")
-            return 3
+            out.print("[red]✗ DENIED[/red] Invalid activation code.")
+            raise typer.Exit(3)
 
     try:
         result = orch.run_plugin(plugin_name, dry_run=dry_run)
     except PolicyDeniedException as e:
-        print(f"[POLICY DENIED] {e}")
-        return 2
+        out.print(f"[red]✗ POLICY DENIED[/red] {e}")
+        raise typer.Exit(2) from None
 
-    # Output results
-    print(f"\n{'=' * 60}")
-    print(f"Plugin: {result.plugin_name}")
-    print(f"Success: {result.success}")
-    if result.findings:
-        print(f"Findings ({len(result.findings)}):")
-        for f in result.findings:
-            print(f"  - [{f.get('type', '?')}] {f.get('target', '?')}: {f.get('detail', '')}")
-    if result.errors:
-        print("Errors:")
-        for e in result.errors:
-            print(f"  ! {e}")
-    if result.metadata:
-        print(f"Metadata: {json.dumps(result.metadata, indent=2)}")
-    print(f"{'=' * 60}")
-
+    # Output
+    result_dict = {
+        "plugin_name": result.plugin_name,
+        "success": result.success,
+        "findings": result.findings if isinstance(result.findings, list) else [],
+        "errors": result.errors if isinstance(result.errors, list) else [],
+        "metadata": result.metadata if isinstance(result.metadata, dict) else {},
+        "mode": "dry-run" if dry_run else "live",
+    }
+    format_scan_result(result_dict, _format)
     orch.shutdown()
-    return 0 if result.success else 1
+    if not result.success:
+        raise typer.Exit(1)
 
 
-def cmd_list_plugins(args: argparse.Namespace) -> int:
+# ---------------------------------------------------------------------------
+# list-plugins
+# ---------------------------------------------------------------------------
+
+
+@app.command("list-plugins")
+def list_plugins() -> None:
     """List all registered plugins."""
     plugins = PluginRegistry.list_plugins()
     if not plugins:
-        print("[!] No plugins registered.")
-        return 1
+        out.print("[yellow]![/yellow] No plugins registered.")
+        raise typer.Exit(1)
 
-    print(f"\nRegistered Plugins ({len(plugins)}):")
-    print(f"{'Name':<25} {'Version':<10} {'Category':<15} {'Auth':<6} Description")
-    print("-" * 90)
-    for p in plugins:
-        auth = "YES" if p["requires_authorization"] else "NO"
-        print(
-            f"{p['name']:<25} {p['version']:<10} {p['category']:<15} {auth:<6} {p['description']}"
-        )
-    return 0
+    if _format == "json":
+        out.print_json(json.dumps(plugins, indent=2, default=str))
+    else:
+        out.print(format_plugin_list(plugins))
 
 
-def cmd_verify_roe(args: argparse.Namespace) -> int:
-    """Validate an RoE file."""
+# ---------------------------------------------------------------------------
+# verify-roe
+# ---------------------------------------------------------------------------
+
+
+@app.command("verify-roe")
+def verify_roe(
+    file: str = typer.Argument(..., help="Path to RoE YAML file"),
+) -> None:
+    """Validate a Rules of Engagement file."""
     from redcheck.security.roe_validator import validate_roe_file
 
-    valid, message, data = validate_roe_file(args.file)
+    valid, message, data = validate_roe_file(file)
+    if _format == "json":
+        out.print_json(
+            json.dumps(
+                {"valid": valid, "message": message, "data": data},
+                indent=2,
+                default=str,
+            )
+        )
+        if not valid:
+            raise typer.Exit(1)
+        return
+
     if valid:
-        print(f"[OK] {message}")
-        print(f"  Engagement: {data.get('engagement_id', '?')}")
-        print(f"  Authorizer: {data.get('authorizer', '?')}")
-        print(f"  Targets: {len(data.get('authorized_targets', []))}")
-        print(f"  Tests: {', '.join(data.get('allowed_tests', []))}")
-        return 0
+        out.print(f"[green]✓[/green] {message}")
+        out.print(f"  Engagement: {data.get('engagement_id', '?')}")
+        out.print(f"  Authorizer: {data.get('authorizer', '?')}")
+        out.print(f"  Targets:    {len(data.get('authorized_targets', []))}")
+        out.print(f"  Tests:      {', '.join(data.get('allowed_tests', []))}")
     else:
-        print(f"[FAIL] {message}")
-        return 1
+        out.print(f"[red]✗[/red] {message}")
+        raise typer.Exit(1)
 
 
-def cmd_activate(args: argparse.Namespace) -> int:
+# ---------------------------------------------------------------------------
+# activate
+# ---------------------------------------------------------------------------
+
+
+@app.command()
+def activate(
+    set_code: bool = typer.Option(False, "--set", help="Set a new activation code"),
+    verify_code: bool = typer.Option(False, "--verify", help="Verify existing activation code"),
+) -> None:
     """Set or verify activation code."""
-    import getpass
-
     engine = ActivationEngine()
 
-    if args.set_code:
-        code = getpass.getpass("[?] Enter new activation code: ")
-        confirm = getpass.getpass("[?] Confirm activation code: ")
+    if set_code:
+        code = typer.prompt("Enter new activation code", hide_input=True)
+        confirm = typer.prompt("Confirm activation code", hide_input=True)
         if code != confirm:
-            print("[!] Codes do not match.")
-            return 1
+            out.print("[red]✗[/red] Codes do not match.")
+            raise typer.Exit(1)
         ok, msg = engine.set_code(code)
         if ok:
-            print(f"[OK] {msg}")
+            out.print(f"[green]✓[/green] {msg}")
         else:
-            print(f"[FAIL] {msg}")
-            return 1
-        return 0
+            out.print(f"[red]✗[/red] {msg}")
+            raise typer.Exit(1)
+        return
 
-    if args.verify_code:
-        code = getpass.getpass("[?] Enter activation code to verify: ")
+    if verify_code:
+        code = typer.prompt("Enter activation code to verify", hide_input=True)
         if engine.verify_code(code):
-            print("[OK] Activation code verified.")
+            out.print("[green]✓[/green] Activation code verified.")
         else:
-            print("[FAIL] Invalid activation code.")
-            return 1
-        return 0
+            out.print("[red]✗[/red] Invalid activation code.")
+            raise typer.Exit(1)
+        return
 
-    # Default: show status
     if engine.is_configured:
-        print("[OK] Activation code is configured.")
+        out.print("[green]✓[/green] Activation code is configured.")
     else:
-        print("[!] No activation code set. Use 'redcheck activate --set'.")
-    return 0
+        out.print(
+            "[yellow]![/yellow] No activation code set. Use [bold]redcheck activate --set[/bold]."
+        )
 
 
-def cmd_status(args: argparse.Namespace) -> int:
+# ---------------------------------------------------------------------------
+# status
+# ---------------------------------------------------------------------------
+
+
+@app.command()
+def status() -> None:
     """Show framework status."""
-    print(f"\nRedCheck246 v{__version__}")
-    print(f"{'=' * 40}")
+    if _format != "json":
+        print_banner(__version__)
 
-    # Activation
     engine = ActivationEngine()
-    act_status = "CONFIGURED" if engine.is_configured else "NOT SET"
-    print(f"Activation: {act_status}")
-
-    # Plugins
     plugins = PluginRegistry.list_plugins()
-    print(f"Plugins:    {len(plugins)} registered")
-
-    # Policy engine
     policy = get_policy_engine()
-    print(f"Policy:     {policy.__class__.__name__} loaded")
-
-    # Audit
     audit = get_audit_logger()
-    log_path = Path(audit.log_path) if hasattr(audit, "log_path") else Path("logs/audit.log")
-    print(f"Audit log:  {log_path} ({'exists' if log_path.exists() else 'not found'})")
 
-    print(f"{'=' * 40}")
-    return 0
-
-
-def main() -> int:
-    """CLI entry point."""
-    parser = build_parser()
-    args = parser.parse_args()
-
-    if not args.command:
-        parser.print_help()
-        return 0
-
-    commands = {
-        "init": cmd_init,
-        "recon": cmd_recon,
-        "run": cmd_run,
-        "list-plugins": cmd_list_plugins,
-        "verify-roe": cmd_verify_roe,
-        "activate": cmd_activate,
-        "status": cmd_status,
+    status_data = {
+        "version": __version__,
+        "activation": "CONFIGURED" if engine.is_configured else "NOT SET",
+        "plugins": f"{len(plugins)} registered",
+        "policy_engine": policy.__class__.__name__,
+        "audit_log": str(audit.log_path),
+        "audit_log_exists": audit.log_path.exists(),
     }
+    format_status(status_data, _format)
 
-    handler = commands.get(args.command)
-    if handler is None:
-        parser.print_help()
-        return 1
 
+# ---------------------------------------------------------------------------
+# Entry point
+# ---------------------------------------------------------------------------
+
+
+def main() -> None:
+    """CLI entry point."""
     try:
-        return handler(args)
+        app()
     except KeyboardInterrupt:
-        print("\n[!] Interrupted.")
-        return 130
-    except Exception as e:
-        print(f"[ERROR] {e}")
-        return 1
+        out.print("\n[yellow]![/yellow] Interrupted.")
+        sys.exit(130)
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()

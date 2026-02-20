@@ -1,19 +1,25 @@
-"""
-RedCheck246 Orchestrator
+"""RedCheck246 — Orchestrator.
 
-Central execution coordinator. Manages engagement lifecycle, plugin dispatch,
-and ensures all policy gates are enforced.
+Central execution coordinator.  Manages engagement lifecycle, plugin
+dispatch, and ensures all policy gates are enforced (Spec 1).
 """
 
+from __future__ import annotations
+
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+import structlog
 import yaml
 
 from redcheck.core.audit import get_audit_logger
-from redcheck.core.policy_engine import PolicyDeniedException, get_policy_engine
+from redcheck.core.policy_engine import get_policy_engine
+from redcheck.exceptions import PolicyDeniedException
 from redcheck.plugins.base_plugin import PluginRegistry, PluginResult
+
+log = structlog.get_logger(__name__)
 
 
 @dataclass
@@ -22,7 +28,7 @@ class EngagementContext:
 
     engagement_id: str = ""
     authorizer: str = ""
-    authorized_targets: list[dict] = field(default_factory=list)
+    authorized_targets: list[dict[str, Any]] = field(default_factory=list)
     allowed_tests: list[str] = field(default_factory=list)
     start_time_utc: str = ""
     end_time_utc: str = ""
@@ -31,10 +37,10 @@ class EngagementContext:
     activation_verified: bool = False
     safety_mode: str = "dry-run"
     sensitivity: str = "high"
-    contact: dict = field(default_factory=dict)
+    contact: dict[str, Any] = field(default_factory=dict)
     metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "engagement_id": self.engagement_id,
             "authorizer": self.authorizer,
@@ -52,7 +58,7 @@ class EngagementContext:
         }
 
     @classmethod
-    def from_yaml(cls, path: str | Path) -> "EngagementContext":
+    def from_yaml(cls, path: str | Path) -> EngagementContext:
         """Load engagement context from a YAML file."""
         path = Path(path)
         with open(path, encoding="utf-8") as f:
@@ -60,7 +66,7 @@ class EngagementContext:
         return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
 
     @classmethod
-    def from_roe(cls, roe_data: dict) -> "EngagementContext":
+    def from_roe(cls, roe_data: dict[str, Any]) -> EngagementContext:
         """Create engagement context from validated RoE data."""
         return cls(
             engagement_id=str(roe_data.get("engagement_id", "")),
@@ -77,7 +83,7 @@ class EngagementContext:
 class Orchestrator:
     """Central orchestrator for RedCheck engagements."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.policy = get_policy_engine()
         self.audit = get_audit_logger()
         self._current_engagement: EngagementContext | None = None
@@ -89,17 +95,13 @@ class Orchestrator:
     def load_engagement(self, roe_path: str | Path) -> EngagementContext:
         """Load and validate an engagement from its RoE file.
 
-        Returns: EngagementContext if validation passes.
-        Raises: PolicyDeniedException if RoE is invalid.
+        Raises ``PolicyDeniedException`` if the RoE is invalid.
         """
         valid, message, roe_data = self.policy.validate_roe(roe_path)
 
         if not valid:
-            self.audit.log(
-                action="ENGAGEMENT_LOAD_FAILED",
-                details=message,
-                level="ERROR",
-            )
+            log.error("engagement_load_failed", reason=message)
+            self.audit.log(action="ENGAGEMENT_LOAD_FAILED", details=message, level="ERROR")
             raise PolicyDeniedException("orchestrator", message)
 
         ctx = EngagementContext.from_roe(roe_data)
@@ -107,28 +109,30 @@ class Orchestrator:
         ctx.roe_validated = True
         self._current_engagement = ctx
 
+        log.info(
+            "engagement_loaded",
+            engagement_id=ctx.engagement_id,
+            authorizer=ctx.authorizer,
+        )
         self.audit.log_engagement_action(
             action="ENGAGEMENT_LOADED",
             engagement_id=ctx.engagement_id,
             details=f"RoE validated, authorizer: {ctx.authorizer}",
         )
-
         return ctx
 
     def activate(self, code: str) -> bool:
         """Activate the current engagement with the given activation code."""
         if not self._current_engagement:
-            self.audit.log(
-                action="ACTIVATION_FAILED",
-                details="No engagement loaded",
-                level="WARN",
-            )
+            log.warning("activation_failed", reason="no_engagement")
+            self.audit.log(action="ACTIVATION_FAILED", details="No engagement loaded", level="WARN")
             return False
 
         valid = self.policy.validate_activation_code(code)
         if valid:
             self._current_engagement.activation_verified = True
             self._current_engagement.safety_mode = "authorized-active"
+            log.info("engagement_activated", engagement_id=self._current_engagement.engagement_id)
             self.audit.log_engagement_action(
                 action="ENGAGEMENT_ACTIVATED",
                 engagement_id=self._current_engagement.engagement_id,
@@ -139,17 +143,9 @@ class Orchestrator:
         self,
         plugin_name: str,
         dry_run: bool = False,
-        extra_context: dict | None = None,
+        extra_context: dict[str, Any] | None = None,
     ) -> PluginResult:
-        """Execute a plugin within the current engagement context.
-
-        Args:
-            plugin_name: Name of the registered plugin to run.
-            dry_run: If True, use dry_run mode regardless of engagement state.
-            extra_context: Additional context to merge.
-
-        Returns: PluginResult
-        """
+        """Execute a plugin within the current engagement context."""
         plugin = PluginRegistry.get_instance(plugin_name)
         if plugin is None:
             return PluginResult(
@@ -158,16 +154,14 @@ class Orchestrator:
                 errors=[f"Plugin '{plugin_name}' not found in registry"],
             )
 
-        # Build context dict
+        context: dict[str, Any] = {}
         if self._current_engagement:
             context = self._current_engagement.to_dict()
-        else:
-            context = {}
         if extra_context:
             context.update(extra_context)
 
-        # Dry run bypasses policy for authorized plugins
         if dry_run:
+            log.info("plugin_dry_run", plugin=plugin_name)
             self.audit.log(
                 action="PLUGIN_DRY_RUN",
                 details=f"Dry run: {plugin_name}",
@@ -176,7 +170,7 @@ class Orchestrator:
             )
             return plugin.dry_run(context)
 
-        # Policy gate — this MUST pass for active execution
+        # Policy gate
         if plugin.requires_authorization:
             self.policy.authorize(
                 plugin_name=plugin_name,
@@ -184,7 +178,6 @@ class Orchestrator:
                 requires_authorization=True,
             )
 
-        # Validate context
         valid, reason = plugin.validate_context(context)
         if not valid:
             return PluginResult(
@@ -193,7 +186,7 @@ class Orchestrator:
                 errors=[f"Context validation failed: {reason}"],
             )
 
-        # Execute
+        log.info("plugin_execute", plugin=plugin_name)
         self.audit.log(
             action="PLUGIN_EXECUTE",
             details=f"Executing: {plugin_name}",
@@ -201,29 +194,41 @@ class Orchestrator:
             engagement_id=context.get("engagement_id", ""),
         )
 
+        start_time = time.monotonic()
         try:
             result = plugin.execute(context)
-        except Exception as e:
+        except Exception as exc:
             result = PluginResult(
                 plugin_name=plugin_name,
                 success=False,
-                errors=[f"Plugin execution error: {e}"],
+                errors=[f"Plugin execution error: {exc}"],
             )
 
+        duration_ms = int((time.monotonic() - start_time) * 1000)
+        result.metadata["duration_ms"] = duration_ms
+
+        log.info(
+            "plugin_complete",
+            plugin=plugin_name,
+            success=result.success,
+            findings=len(result.findings),
+            duration_ms=duration_ms,
+        )
         self.audit.log(
             action="PLUGIN_COMPLETE",
             details=(
-                f"Plugin {plugin_name}: success={result.success}, findings={len(result.findings)}"
+                f"{plugin_name}: success={result.success}, "
+                f"findings={len(result.findings)}, {duration_ms}ms"
             ),
             plugin=plugin_name,
             engagement_id=context.get("engagement_id", ""),
         )
-
         return result
 
     def shutdown(self) -> None:
         """Clean shutdown of the orchestrator."""
         if self._current_engagement:
+            log.info("engagement_shutdown", engagement_id=self._current_engagement.engagement_id)
             self.audit.log_engagement_action(
                 action="ENGAGEMENT_SHUTDOWN",
                 engagement_id=self._current_engagement.engagement_id,

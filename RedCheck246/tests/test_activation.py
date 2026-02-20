@@ -57,11 +57,11 @@ class TestActivationEngine:
         engine.set_code("First@Code111")
         import json
 
-        with open(engine._store_path) as f:
+        with open(engine._path) as f:
             hash1 = json.load(f)["hash"]
 
         engine.set_code("Second@Code222")
-        with open(engine._store_path) as f:
+        with open(engine._path) as f:
             hash2 = json.load(f)["hash"]
 
         assert hash1 != hash2

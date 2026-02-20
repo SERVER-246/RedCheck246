@@ -1,0 +1,44 @@
+# Git
+.git
+.gitignore
+
+# Python cache
+__pycache__
+*.pyc
+*.pyo
+*.egg-info
+dist/
+build/
+*.egg
+
+# Virtual environments
+.venv
+venv
+env
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Test / CI artifacts
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.coverage
+htmlcov/
+coverage.xml
+
+# Engagement data (sensitive — never bake into image)
+evidence/
+logs/
+engagements/
+.activation/
+
+# Misc
+*.skill
+*.env
+.env.*
+.DS_Store
+Thumbs.db

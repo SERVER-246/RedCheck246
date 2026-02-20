@@ -1,0 +1,42 @@
+# =============================================================================
+# RedCheck246 — Docker Compose
+# =============================================================================
+
+services:
+  # Production runtime
+  redcheck:
+    build:
+      context: .
+      target: runtime
+    volumes:
+      - ./engagements:/app/engagements
+      - ./evidence:/app/evidence
+      - ./logs:/app/logs
+    environment:
+      - REDCHECK_LOG_LEVEL=INFO
+      - REDCHECK_LOG_FORMAT=json
+    networks:
+      - redcheck-net
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+
+  # Development / test runner
+  redcheck-dev:
+    build:
+      context: .
+      target: dev
+    volumes:
+      - .:/app
+    environment:
+      - REDCHECK_LOG_LEVEL=DEBUG
+      - REDCHECK_LOG_FORMAT=text
+    command: pytest --cov=redcheck tests/ -v
+    networks:
+      - redcheck-net
+
+networks:
+  redcheck-net:
+    driver: bridge

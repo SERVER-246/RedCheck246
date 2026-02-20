@@ -1,26 +1,46 @@
-"""
-RedCheck246 Configuration
+"""RedCheck246 Configuration — Pydantic BaseSettings.
 
-Central configuration management. Loads from config.yaml or environment variables.
+Loads from environment variables (REDCHECK_ prefix), config YAML, or defaults.
+No side effects on construction — call ``ensure_dirs()`` explicitly.
 """
 
-import os
-from dataclasses import dataclass, field
+from __future__ import annotations
+
 from pathlib import Path
 from typing import Any
 
 import yaml
+from pydantic import Field, field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from redcheck.models import RuntimeMode
 
 
-@dataclass
-class RedCheckConfig:
-    """Central configuration for RedCheck246."""
+class RedCheckConfig(BaseSettings):
+    """Central configuration for RedCheck246.
+
+    Resolution order (highest priority first):
+      1. Environment variables  (``REDCHECK_`` prefix)
+      2. Explicit constructor kwargs
+      3. YAML config file (via ``from_yaml()``)
+      4. Defaults below
+    """
+
+    model_config = SettingsConfigDict(
+        env_prefix="REDCHECK_",
+        env_nested_delimiter="__",
+        case_sensitive=False,
+    )
 
     # Paths
-    project_root: Path = field(default_factory=lambda: Path(__file__).resolve().parents[2])
-    engagements_dir: Path = field(default=None)
-    logs_dir: Path = field(default=None)
-    activation_file: Path = field(default=None)
+    project_root: Path = Field(default_factory=lambda: Path.cwd())
+    engagements_dir: Path | None = None
+    logs_dir: Path | None = None
+    activation_file: Path | None = None
+    evidence_dir: Path | None = None
+
+    # Runtime mode (Spec 4)
+    runtime_mode: RuntimeMode = RuntimeMode.DEV
 
     # Security
     require_signed_roe: bool = True
@@ -29,74 +49,87 @@ class RedCheckConfig:
 
     # Operational
     default_mode: str = "dry-run"
-    max_concurrent_plugins: int = 1
+    max_concurrent_plugins: int = Field(default=1, ge=1, le=10)
     audit_log_enabled: bool = True
+    log_level: str = "INFO"
+    log_format: str = "text"  # "text" | "json"
 
-    def __post_init__(self):
-        if self.engagements_dir is None:
-            self.engagements_dir = self.project_root / "engagements"
-        if self.logs_dir is None:
-            self.logs_dir = self.project_root / "logs"
-        if self.activation_file is None:
-            self.activation_file = self.project_root / ".activation" / "activation.enc"
+    # Networking limits (Spec 3)
+    max_requests_per_second: int = Field(default=10, ge=1, le=50)
+    request_timeout_seconds: int = Field(default=10, ge=1, le=30)
+    scan_timeout_seconds: int = Field(default=300, ge=1, le=600)
 
-        # Ensure directories exist
-        self.engagements_dir.mkdir(parents=True, exist_ok=True)
-        self.logs_dir.mkdir(parents=True, exist_ok=True)
+    @field_validator("runtime_mode", mode="before")
+    @classmethod
+    def coerce_runtime_mode(cls, v: Any) -> Any:
+        if isinstance(v, str):
+            return v.lower()
+        return v
+
+    def ensure_dirs(self) -> None:
+        """Create required directories. Call explicitly — not on __init__."""
+        for d in self.resolved_engagements_dir, self.resolved_logs_dir, self.resolved_evidence_dir:
+            d.mkdir(parents=True, exist_ok=True)
+        self.resolved_activation_file.parent.mkdir(parents=True, exist_ok=True)
+
+    # Resolved paths (with defaults relative to project_root)
+    @property
+    def resolved_engagements_dir(self) -> Path:
+        return self.engagements_dir or self.project_root / "engagements"
+
+    @property
+    def resolved_logs_dir(self) -> Path:
+        return self.logs_dir or self.project_root / "logs"
+
+    @property
+    def resolved_activation_file(self) -> Path:
+        return self.activation_file or self.project_root / ".activation" / "activation.enc"
+
+    @property
+    def resolved_evidence_dir(self) -> Path:
+        return self.evidence_dir or self.project_root / "evidence"
 
     @classmethod
-    def from_yaml(cls, path: str | Path) -> "RedCheckConfig":
-        """Load config from YAML file."""
+    def from_yaml(cls, path: str | Path) -> RedCheckConfig:
+        """Load config from YAML file, merged with env vars."""
         path = Path(path)
         if not path.exists():
             return cls()
         with open(path, encoding="utf-8") as f:
             data = yaml.safe_load(f) or {}
-        return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
-
-    @classmethod
-    def from_env(cls) -> "RedCheckConfig":
-        """Load config from environment variables (REDCHECK_ prefix)."""
-        kwargs: dict[str, Any] = {}
-        prefix = "REDCHECK_"
-        for key, field_info in cls.__dataclass_fields__.items():
-            env_key = prefix + key.upper()
-            val = os.environ.get(env_key)
-            if val is not None:
-                if field_info.type == "bool":
-                    kwargs[key] = val.lower() in ("true", "1", "yes")
-                elif field_info.type == "int":
-                    kwargs[key] = int(val)
-                elif field_info.type in ("Path", "Path | None"):
-                    kwargs[key] = Path(val)
-                else:
-                    kwargs[key] = val
-        return cls(**kwargs)
+        # Filter to known fields
+        known = cls.model_fields.keys()
+        filtered = {k: v for k, v in data.items() if k in known}
+        return cls(**filtered)
 
     def to_yaml(self, path: str | Path) -> None:
-        """Save config to YAML file."""
+        """Serialize config to YAML file."""
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
-        data = {}
-        for key in self.__dataclass_fields__:
-            val = getattr(self, key)
-            if isinstance(val, Path):
-                data[key] = str(val)
-            else:
-                data[key] = val
+        data = self.model_dump(mode="json")
         with open(path, "w", encoding="utf-8") as f:
             yaml.dump(data, f, default_flow_style=False, sort_keys=False)
 
+
+# ---------------------------------------------------------------------------
+# Module-level singleton with explicit reset for testing
+# ---------------------------------------------------------------------------
 
 _config: RedCheckConfig | None = None
 
 
 def get_config(config_path: str | Path | None = None) -> RedCheckConfig:
     """Get or create the global config instance."""
-    global _config
+    global _config  # noqa: PLW0603
     if _config is None:
         if config_path and Path(config_path).exists():
             _config = RedCheckConfig.from_yaml(config_path)
         else:
             _config = RedCheckConfig()
     return _config
+
+
+def reset_config() -> None:
+    """Reset global config — for test isolation only."""
+    global _config  # noqa: PLW0603
+    _config = None

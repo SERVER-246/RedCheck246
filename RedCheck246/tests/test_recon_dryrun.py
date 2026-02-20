@@ -10,7 +10,7 @@ def register_plugins():
     """Import plugins to trigger registration."""
     from redcheck.plugins.recon.passive_recon import PassiveReconPlugin  # noqa: F401
 
-    yield
+    return
 
 
 class TestPassiveReconDryRun:
