@@ -1,4 +1,4 @@
 # RedCheck246 — Production Dependencies
 
 PyYAML>=6.0,<7.0
-cryptography>=41.0,<44.0
+cryptography>=41.0,<47.0
