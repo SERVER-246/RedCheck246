@@ -79,12 +79,13 @@ This plan transitions RedCheck246 from a **hardened scanning framework** (v0.2.0
 9. [**PHASE 5 — Commercial Readiness**](#phase-5--commercial-readiness-weeks-1316)
 10. [Capability Enforcement Matrix](#capability-enforcement-matrix)
 11. [MITRE ATT&CK Mapping](#mitre-attck-mapping)
-12. [Research Mode Rules](#research-mode-rules)
-13. [Key Constants](#key-constants)
-14. [Risk Classification & Mitigation](#risk-classification--mitigation)
-15. [Release Strategy](#release-strategy)
-16. [Binding Specifications](#binding-specifications)
-17. [Estimated Effort Summary](#estimated-effort-summary)
+12. [**Threat Model Definition**](#threat-model-definition)
+13. [Research Mode Rules](#research-mode-rules)
+14. [Key Constants](#key-constants)
+15. [Risk Classification & Mitigation](#risk-classification--mitigation)
+16. [Release Strategy](#release-strategy)
+17. [Binding Specifications](#binding-specifications)
+18. [Estimated Effort Summary](#estimated-effort-summary)
 
 ---
 
@@ -1154,6 +1155,137 @@ Global Orchestrator
 | `typosquat` | T1583.001 | Acquire Infrastructure: Domains | 2 |
 | `protocol-fuzzer` | T1499 | Endpoint Denial of Service | — |
 | `supply-chain` | T1195.002 | Supply Chain Compromise | — |
+
+---
+
+## Threat Model Definition
+
+RedCheck246 simulates **four distinct attacker classes**. Every plugin, attack graph path, and detection validation exercise must declare which attacker class it emulates. Phase 3 (Attack Graph) uses these profiles to scope initial access nodes, privilege bounds, and lateral movement constraints — without them the graph is unbounded.
+
+### Attacker Class Definitions
+
+#### AC-1 — Opportunistic External Attacker
+
+| Property | Value |
+|----------|-------|
+| **Profile** | Unauthenticated outsider with no prior knowledge of the target |
+| **Initial Foothold** | None — begins from the public internet |
+| **Network Access** | External-only; limited to publicly exposed services (ports, web apps, DNS) |
+| **Privilege Starting Point** | Anonymous / unauthenticated (privilege level 0) |
+| **Objective** | Discover exposed services, identify misconfigurations, exploit public-facing vulns |
+| **Lateral Movement** | Not applicable — single-hop only unless exploit chains to AC-4 |
+| **MITRE Tactic Focus** | Reconnaissance (TA0043), Initial Access (TA0001) |
+| **Applicable Plugins** | `passive-recon`, `network-scanner`, `dast-scanner`, `crawler`, `ct-watch`, `typosquat`, `supply-chain-audit` |
+| **Offensive Controls Required** | None (PASSIVE) or `allow_auth_testing` (ACTIVE scans) |
+| **Attack Graph Constraint** | Entry nodes = external-facing assets only; max depth = 1 hop |
+
+#### AC-2 — Authenticated Insider
+
+| Property | Value |
+|----------|-------|
+| **Profile** | Legitimate user with valid low-privilege credentials (employee, contractor) |
+| **Initial Foothold** | Authenticated session — credentials provided in RoE |
+| **Network Access** | Internal network; access to systems permitted by role |
+| **Privilege Starting Point** | Standard user (privilege level 1 — no admin, no root) |
+| **Objective** | Test authorization boundaries, IDOR flaws, privilege escalation paths, data access controls |
+| **Lateral Movement** | Allowed within authorized scope; bounded by RoE target list |
+| **MITRE Tactic Focus** | Privilege Escalation (TA0004), Credential Access (TA0006), Discovery (TA0007) |
+| **Applicable Plugins** | `auth-tester`, `idor-checker`, `hash-strength`, `injection-sim`, `detection-coverage` |
+| **Offensive Controls Required** | `allow_auth_testing` + `allow_credential_spraying` (for hash analysis) |
+| **Attack Graph Constraint** | Entry nodes = authenticated endpoints; edges require valid session token; max depth = 3 hops |
+
+#### AC-3 — Compromised Service Account
+
+| Property | Value |
+|----------|-------|
+| **Profile** | Non-human identity (API key, service principal, CI token) with elevated but scoped permissions |
+| **Initial Foothold** | Valid service credential — provided in RoE as test token (never production) |
+| **Network Access** | Internal + service mesh; access to APIs, databases, cloud control planes |
+| **Privilege Starting Point** | Service-level (privilege level 2 — elevated but non-root, scoped to service role) |
+| **Objective** | Test service-to-service trust boundaries, API authorization, secrets exposure, token scope creep |
+| **Lateral Movement** | Service-to-service only; bounded by API authorization and RoE scope |
+| **MITRE Tactic Focus** | Credential Access (TA0006), Lateral Movement (TA0008), Collection (TA0009) |
+| **Applicable Plugins** | `auth-tester`, `exploit-verifier`, `protocol-fuzzer`, `supply-chain-audit` |
+| **Offensive Controls Required** | `allow_auth_testing` + `allow_exploit_validation` |
+| **Attack Graph Constraint** | Entry nodes = service endpoints; edges = API call chains; max depth = 4 hops |
+
+#### AC-4 — Post-Exploitation Actor
+
+| Property | Value |
+|----------|-------|
+| **Profile** | Attacker who has already achieved initial compromise and is operating inside the perimeter |
+| **Initial Foothold** | Established — simulated via controlled Docker sandbox (RESEARCH mode only) |
+| **Network Access** | Full internal (within isolated lab network); no external breakout |
+| **Privilege Starting Point** | Local admin on one host (privilege level 3 — simulated, not real) |
+| **Objective** | Map attack paths to high-value targets, test detection coverage, validate kill-chain visibility |
+| **Lateral Movement** | Multi-hop chaining; bounded by `chain_mode=True` + `allow_exploit_validation` + Docker isolation |
+| **MITRE Tactic Focus** | Lateral Movement (TA0008), Privilege Escalation (TA0004), Impact (TA0040), Defense Evasion (TA0005) |
+| **Applicable Plugins** | `exploit-verifier`, `attack-graph`, `detection-coverage`, `alert-latency` |
+| **Offensive Controls Required** | `allow_exploit_validation` + `allow_privesc_probing` + `chain_mode` |
+| **Attack Graph Constraint** | Entry nodes = compromised host; full graph traversal allowed; max depth = 6 hops |
+| **Hard Requirement** | `RuntimeMode.RESEARCH` + Docker isolation + operator `--confirm` |
+
+### Attacker Class × Phase Applicability
+
+| Attacker Class | Phase 1 | Phase 2 | Phase 3 | Phase 4 | Phase 5 |
+|----------------|:-------:|:-------:|:-------:|:-------:|:-------:|
+| AC-1 Opportunistic External | — | ✅ Primary | ✅ Entry nodes | ✅ Detection baseline | — |
+| AC-2 Authenticated Insider | — | ✅ Auth/IDOR | ✅ Lateral paths | ✅ Alert validation | — |
+| AC-3 Compromised Service Account | — | ✅ API testing | ✅ Service chains | ✅ Gap analysis | — |
+| AC-4 Post-Exploitation Actor | — | ✅ PoC only | ✅ Full graph | ✅ Kill-chain coverage | — |
+
+### Attacker Class × Gate Requirements
+
+| Gate | AC-1 | AC-2 | AC-3 | AC-4 |
+|------|:----:|:----:|:----:|:----:|
+| Signed RoE | ✅ | ✅ | ✅ | ✅ |
+| Activation Code | ACTIVE only | ✅ | ✅ | ✅ |
+| RuntimeMode ≥ STAGING | No | No | No | **RESEARCH only** |
+| `allow_auth_testing` | ACTIVE only | ✅ | ✅ | ✅ |
+| `allow_exploit_validation` | No | No | ✅ | ✅ |
+| `allow_credential_spraying` | No | ✅ | No | No |
+| `allow_privesc_probing` | No | No | No | ✅ |
+| `chain_mode` | No | No | No | ✅ |
+| Docker isolation | No | No | No | ✅ |
+| Operator `--confirm` | No | No | No | ✅ |
+
+### Attack Graph Constraints by Class (Phase 3 Scoping)
+
+```
+AC-1 (External)
+  ├── Entry: public-facing assets only
+  ├── Max depth: 1 hop (no lateral movement)
+  ├── Edge types: exploit_public, misconfig
+  └── Graph size: ≤ 50 nodes
+
+AC-2 (Insider)
+  ├── Entry: authenticated endpoints
+  ├── Max depth: 3 hops
+  ├── Edge types: privesc, idor, authz_bypass
+  └── Graph size: ≤ 200 nodes
+
+AC-3 (Service Account)
+  ├── Entry: service endpoints / API gateways
+  ├── Max depth: 4 hops
+  ├── Edge types: api_chain, token_reuse, trust_boundary
+  └── Graph size: ≤ 500 nodes
+
+AC-4 (Post-Exploitation)
+  ├── Entry: compromised host (simulated)
+  ├── Max depth: 6 hops
+  ├── Edge types: all (lateral, privesc, exfil_indicator)
+  ├── Graph size: ≤ 1000 nodes (ATTACK_GRAPH_MAX_NODES)
+  └── REQUIRES: RESEARCH mode + Docker + --confirm
+```
+
+### Implementation Requirements
+
+1. **`EngagementContext` extension** — Add `attacker_class: AttackerClass` field (enum: `AC1`, `AC2`, `AC3`, `AC4`)
+2. **RoE must declare class** — `roe.yaml` requires `attacker_class` field; validation rejects missing value
+3. **Orchestrator enforcement** — Step 6.5 (new): verify `attacker_class` gates match plugin requirements
+4. **Attack graph scoping** — `AttackPathGraph.__init__()` reads `attacker_class` to set `max_depth`, `allowed_edge_types`, `max_nodes`
+5. **Detection validation tagging** — Coverage reports annotate findings with attacker class for gap analysis per profile
+6. **Reporting** — Executive summary groups findings by attacker class with separate risk scores
 
 ---
 
