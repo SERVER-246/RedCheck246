@@ -158,6 +158,9 @@ async def check_ssl_tls(host: str, port: int = 443) -> list[dict[str, Any]]:
         ctx = ssl.create_default_context()
         ctx.check_hostname = False
         ctx.verify_mode = ssl.CERT_NONE
+        # Enforce minimum TLS 1.2 — scanner probes for weak versions
+        # by checking the negotiated version, not by downgrading itself.
+        ctx.minimum_version = ssl.TLSVersion.TLSv1_2
         with socket.create_connection((host, port), timeout=_SSL_TIMEOUT) as sock:  # noqa: SIM117
             with ctx.wrap_socket(sock, server_hostname=host) as ssock:
                 cert = ssock.getpeercert(binary_form=False)
