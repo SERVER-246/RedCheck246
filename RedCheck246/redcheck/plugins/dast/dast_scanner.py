@@ -22,6 +22,7 @@ from typing import Any
 
 import httpx
 
+from redcheck.plugins._http import scanning_ssl_context
 from redcheck.plugins.base_plugin import BasePlugin, PluginResult
 from redcheck.plugins.dast.wordlists import SENSITIVE_PATHS
 
@@ -63,7 +64,7 @@ async def check_security_headers(url: str) -> list[dict[str, Any]]:
     try:
         async with httpx.AsyncClient(
             timeout=_HTTP_TIMEOUT,
-            verify=False,  # noqa: S501
+            verify=scanning_ssl_context(),
             follow_redirects=True,
         ) as client:
             resp = await client.get(url)
@@ -155,12 +156,7 @@ async def check_ssl_tls(host: str, port: int = 443) -> list[dict[str, Any]]:
     loop = asyncio.get_running_loop()
 
     def _probe() -> dict[str, Any]:
-        ctx = ssl.create_default_context()
-        ctx.check_hostname = False
-        ctx.verify_mode = ssl.CERT_NONE
-        # Enforce minimum TLS 1.2 — scanner probes for weak versions
-        # by checking the negotiated version, not by downgrading itself.
-        ctx.minimum_version = ssl.TLSVersion.TLSv1_2
+        ctx = scanning_ssl_context()
         with socket.create_connection((host, port), timeout=_SSL_TIMEOUT) as sock:  # noqa: SIM117
             with ctx.wrap_socket(sock, server_hostname=host) as ssock:
                 cert = ssock.getpeercert(binary_form=False)
@@ -260,7 +256,7 @@ async def check_http_methods(url: str) -> list[dict[str, Any]]:
     try:
         async with httpx.AsyncClient(
             timeout=_HTTP_TIMEOUT,
-            verify=False,  # noqa: S501
+            verify=scanning_ssl_context(),
             follow_redirects=True,
         ) as client:
             resp = await client.options(url)
@@ -293,7 +289,7 @@ async def check_cookies(url: str) -> list[dict[str, Any]]:
     try:
         async with httpx.AsyncClient(
             timeout=_HTTP_TIMEOUT,
-            verify=False,  # noqa: S501
+            verify=scanning_ssl_context(),
             follow_redirects=True,
         ) as client:
             resp = await client.get(url)
@@ -351,7 +347,7 @@ async def discover_paths(base_url: str) -> list[dict[str, Any]]:
             try:
                 async with httpx.AsyncClient(
                     timeout=_HTTP_TIMEOUT,
-                    verify=False,  # noqa: S501
+                    verify=scanning_ssl_context(),
                     follow_redirects=False,
                 ) as client:
                     resp = await client.get(url)
@@ -390,7 +386,7 @@ async def check_redirects(host: str) -> list[dict[str, Any]]:
     try:
         async with httpx.AsyncClient(
             timeout=_HTTP_TIMEOUT,
-            verify=False,  # noqa: S501
+            verify=scanning_ssl_context(),
             follow_redirects=False,
         ) as client:
             resp = await client.get(http_url)

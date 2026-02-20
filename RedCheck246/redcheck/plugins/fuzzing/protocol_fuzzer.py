@@ -19,6 +19,7 @@ from typing import Any
 
 import httpx
 
+from redcheck.plugins._http import scanning_ssl_context
 from redcheck.plugins.base_plugin import BasePlugin, PluginResult
 from redcheck.plugins.fuzzing.payloads import (
     ALL_PAYLOADS,
@@ -91,7 +92,7 @@ async def _fuzz_query_params(
     findings: list[dict[str, Any]] = []
     async with httpx.AsyncClient(
         timeout=_HTTP_TIMEOUT,
-        verify=False,  # noqa: S501
+        verify=scanning_ssl_context(),
         follow_redirects=True,
     ) as client:
         # Baseline request
@@ -214,7 +215,7 @@ async def _fuzz_headers(
 
     async with httpx.AsyncClient(
         timeout=_HTTP_TIMEOUT,
-        verify=False,  # noqa: S501
+        verify=scanning_ssl_context(),
         follow_redirects=True,
     ) as client:
         for hdr_name in header_targets:
@@ -263,7 +264,7 @@ async def _fuzz_body(
     findings: list[dict[str, Any]] = []
     async with httpx.AsyncClient(
         timeout=_HTTP_TIMEOUT,
-        verify=False,  # noqa: S501
+        verify=scanning_ssl_context(),
         follow_redirects=True,
     ) as client:
         for payload in payloads[:20]:

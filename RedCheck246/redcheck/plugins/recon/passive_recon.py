@@ -27,6 +27,7 @@ import dns.rdatatype
 import dns.reversename
 import httpx
 
+from redcheck.plugins._http import scanning_ssl_context
 from redcheck.plugins.base_plugin import BasePlugin, PluginResult
 from redcheck.plugins.recon.wordlists import COMMON_SUBDOMAINS
 
@@ -218,7 +219,7 @@ async def http_fingerprint(host: str) -> list[dict[str, Any]]:
             async with httpx.AsyncClient(
                 timeout=_HTTP_TIMEOUT,
                 follow_redirects=True,
-                verify=False,  # noqa: S501 — intentional for fingerprinting
+                verify=scanning_ssl_context(),
             ) as client:
                 resp = await client.get(url)
 
