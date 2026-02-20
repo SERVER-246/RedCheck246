@@ -28,7 +28,7 @@ dependencies = [
     "dnspython>=2.7,<3.0",
     "python-whois>=0.9,<1.0",
     "anyio>=4.6,<5.0",
-    "argon2-cffi>=23.1,<24.0",
+    "argon2-cffi>=23.1,<26.0",
 ]
 
 [project.optional-dependencies]
