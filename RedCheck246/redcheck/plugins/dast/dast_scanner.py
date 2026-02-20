@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import asyncio
 import socket
-import ssl
 from datetime import datetime, timezone
 from typing import Any
 

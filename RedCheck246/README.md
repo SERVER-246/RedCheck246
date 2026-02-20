@@ -1,26 +1,57 @@
+<div align="center">
 
+# 🛡️ RedCheck246
 
-# RedCheck246
+**Controlled Adversary Simulation & Resilience Validation Platform**
 
 [![CI](https://github.com/SERVER-246/RedCheck246/actions/workflows/ci.yml/badge.svg)](https://github.com/SERVER-246/RedCheck246/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/SERVER-246/RedCheck246/actions/workflows/codeql.yml/badge.svg)](https://github.com/SERVER-246/RedCheck246/actions/workflows/codeql.yml)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
+[![Tests](https://img.shields.io/badge/tests-157%20passing-brightgreen.svg)](#)
 [![License](https://img.shields.io/badge/license-Proprietary-red.svg)](LICENSE.txt)
 [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
 
-**Policy-gated, plugin-based security assessment framework.**
+</div>
 
-> All active operations require a validated Rules of Engagement (RoE) document and a verified activation code. No exceptions.
+---
 
-## Features
+> **⚠️ Security Notice:** RedCheck246 is a professional security assessment tool. All active scanning requires a signed Rules of Engagement (RoE) document and a verified activation code. Destructive capabilities are disabled outside of isolated research environments. Use responsibly and only on authorized targets.
 
-- 🔒 **Policy-gated execution** — Every scan requires valid RoE + activation code
-- 🔌 **5 built-in plugins** — Passive recon, SAST, DAST, protocol fuzzing, supply chain audit
-- 🔐 **Military-grade crypto** — AES-256-GCM evidence encryption, Ed25519 signatures, Argon2id
-- 📋 **Hash-chained audit log** — Tamper-evident, append-only, encrypted
-- 🚀 **Async-first** — All network plugins use `httpx.AsyncClient`
-- 🐳 **Docker-ready** — Multi-stage Dockerfile with non-root user
-- ✅ **157+ tests** — Full coverage across Python 3.10–3.13
-- 📊 **Rich CLI** — Beautiful terminal output with tables, banners, JSON export
+## What is RedCheck246?
+
+RedCheck246 is a **policy-gated, plugin-based security assessment framework** designed for professional red teams, security researchers, and enterprise security validation. It provides controlled adversary simulation with built-in safety mechanisms that prevent unauthorized or accidental use against out-of-scope targets.
+
+Unlike traditional scanners, RedCheck246 enforces a **4-gate authorization model** before any active operation:
+
+```
+RoE Signature → Activation Code → Runtime Mode Check → Offensive Controls Gate
+```
+
+## Key Features
+
+### 🔒 Authorization & Governance
+- **4-gate policy enforcement** — Ed25519 signed RoE, Argon2id activation, runtime mode matrix, offensive control flags
+- **Scope validation** — CIDR-aware target whitelisting with hard bounds
+- **Hash-chained audit log** — AES-256-GCM encrypted, tamper-evident, append-only
+- **Rate limiting** — Token bucket with configurable hard caps (never exceed `constants.py`)
+
+### 🔌 Plugin Architecture
+- **5 built-in plugins** — Passive recon, SAST, DAST, protocol fuzzing, supply chain audit
+- **Auto-discovery** — Plugins register via `__init_subclass__` and entry points
+- **Lifecycle hooks** — `setup()`, `execute()`, `teardown()`, `health_check()`, `dry_run()`
+- **Capability classification** — `PASSIVE`, `ACTIVE`, `DESTRUCTIVE` with enforcement matrix
+
+### 🔐 Cryptographic Security
+- **Evidence encryption** — AES-256-GCM with PBKDF2-HMAC-SHA512 key derivation
+- **Document signing** — Ed25519 public-key + HMAC-SHA256 dual-mode
+- **Activation codes** — Argon2id (time=3, memory=64MB, parallelism=4)
+- **Secure scanning** — Shared SSL context with TLS 1.2 minimum for all outbound connections
+
+### 📊 Developer Experience
+- **Rich CLI** — Beautiful terminal output with tables, banners, JSON export via Typer
+- **Async-first** — All network plugins use `httpx.AsyncClient`
+- **Docker-ready** — Multi-stage build with non-root user (UID 1000), read-only filesystem
+- **Full test coverage** — 157+ tests across Python 3.10–3.13
 
 ## Quick Start
 
@@ -33,54 +64,55 @@ pip install -e ".[dev]"
 # Set activation code
 redcheck activate --set
 
-# Initialize engagement
+# Initialize an engagement workspace
 redcheck init my-engagement
 
-# Edit the RoE template
+# Edit the Rules of Engagement
 nano my-engagement/roe.yaml
 
-# Validate RoE
+# Validate RoE structure
 redcheck verify-roe my-engagement/roe.yaml
 
-# Dry-run recon
+# Dry-run (no network calls)
 redcheck recon --roe my-engagement/roe.yaml --dry-run
 
-# Run full scan (requires activation)
+# Run a scan (requires valid activation)
 redcheck run passive-recon --roe my-engagement/roe.yaml
 
-# List plugins
+# List available plugins
 redcheck list-plugins
 
-# Check status
+# Check framework status
 redcheck status
 ```
 
 ## Plugin Catalog
 
-| Plugin | Category | Capability | Description |
-|--------|----------|------------|-------------|
-| `passive-recon` | Recon | Passive | DNS, WHOIS, cert transparency, subdomain enum, HTTP fingerprint |
-| `sast-scanner` | SAST | Passive | Bandit integration, 10 regex patterns, dependency audit |
-| `dast-scanner` | DAST | Active | Security headers, SSL/TLS, HTTP methods, cookie analysis |
-| `protocol-fuzzer` | Fuzzing | Active | HTTP param/header/body fuzzing, SQLi/XSS/CMDi payloads |
-| `supply-chain-audit` | Supply Chain | Passive | OSV.dev queries, license compliance, typosquatting, SBOM |
+| Plugin | Category | Capability | MITRE ATT&CK | Description |
+|--------|----------|:----------:|:------------:|-------------|
+| `passive-recon` | Recon | PASSIVE | T1596, T1593 | DNS resolution, WHOIS, certificate transparency, subdomain enumeration, HTTP fingerprinting |
+| `sast-scanner` | SAST | PASSIVE | — | Bandit integration, 10 regex patterns, dependency audit |
+| `dast-scanner` | DAST | ACTIVE | T1190 | Security headers, SSL/TLS configuration, HTTP methods, cookie analysis |
+| `protocol-fuzzer` | Fuzzing | ACTIVE | T1499 | HTTP parameter/header/body fuzzing, SQLi/XSS/CMDi payload library (200+) |
+| `supply-chain-audit` | Supply Chain | PASSIVE | T1195.002 | OSV.dev vulnerability queries, license compliance, typosquatting detection, SBOM |
 
 ## Architecture
 
 ```
 redcheck/
 ├── cli.py                     # Typer CLI (7 commands)
-├── config.py                  # Pydantic BaseSettings (REDCHECK_ env prefix)
+├── config.py                  # Pydantic v2 BaseSettings (REDCHECK_ env prefix)
 ├── exceptions.py              # 11 custom exception classes
-├── models.py                  # 13 Pydantic v2 models
+├── models.py                  # 6 enums + 8 Pydantic v2 models
 ├── output.py                  # Rich terminal formatting
-├── logging.py                 # structlog configuration
+├── logging.py                 # structlog JSON configuration
 ├── core/
 │   ├── audit.py               # AES-256-GCM encrypted hash-chained audit
 │   ├── orchestrator.py        # Engagement lifecycle + plugin dispatch
-│   ├── policy_engine.py       # Central policy gate (RoE validation)
+│   ├── policy_engine.py       # Central policy gate (RoE × mode × capability)
 │   └── activation_engine.py   # Argon2id activation code management
 ├── plugins/
+│   ├── _http.py               # Shared SSL context (scanning_ssl_context)
 │   ├── base_plugin.py         # BasePlugin ABC + PluginRegistry
 │   ├── recon/                 # Passive reconnaissance (7 async modules)
 │   ├── sast/                  # Static analysis (bandit + regex)
@@ -95,14 +127,39 @@ redcheck/
 
 ## Security Controls
 
-| Control | Implementation |
-|---------|---------------|
-| Evidence encryption | AES-256-GCM with PBKDF2-HMAC-SHA512 key derivation |
-| Document signing | Ed25519 public-key + HMAC-SHA256 |
-| Activation codes | Argon2id (with SHA-512 fallback) |
-| Audit log | Hash-chained, append-only, encrypted |
-| Rate limiting | 5 attempts, 300s lockout, 2s cooldown |
-| Container security | Non-root user (UID 1000), read-only filesystem |
+| Control | Implementation | Status |
+|---------|---------------|:------:|
+| Evidence encryption | AES-256-GCM with PBKDF2-HMAC-SHA512 key derivation | ✅ |
+| Document signing | Ed25519 public-key + HMAC-SHA256 | ✅ |
+| Activation codes | Argon2id (time=3, mem=64MB, p=4) with SHA-512 fallback | ✅ |
+| Audit log | Hash-chained, append-only, AES-256-GCM encrypted | ✅ |
+| Brute-force protection | 5 attempts, 300s lockout, 2s cooldown | ✅ |
+| Container security | Non-root user (UID 1000), read-only filesystem | ✅ |
+| Code scanning | GitHub CodeQL with `security-extended` queries | ✅ |
+| Dependency monitoring | Dependabot weekly updates, OSV.dev audits | ✅ |
+| SSL/TLS for scanning | Shared `scanning_ssl_context()` — TLS 1.2 minimum | ✅ |
+
+## Runtime Mode Matrix
+
+| Mode | PASSIVE | ACTIVE | DESTRUCTIVE | Use Case |
+|------|:-------:|:------:|:-----------:|----------|
+| `DEV` | ✅ | ✅ (dry-run) | ❌ | Local development |
+| `CI` | ✅ | ❌ | ❌ | Continuous integration |
+| `STAGING` | ✅ | ✅ | ❌ | Pre-production validation |
+| `PRODUCTION` | ✅ | ✅ | ❌ | Live assessments |
+
+## Roadmap
+
+RedCheck246 follows a phased development approach. See [next_phase_execution_plan.md](../next_phase_execution_plan.md) for full specifications.
+
+| Phase | Scope | Target |
+|:-----:|-------|--------|
+| ✅ 1–16 | Core framework, 5 plugins, crypto, CI/CD | v0.2.0 |
+| 🔄 Phase 1 | Foundation engines — models, orchestrator, rate limiting, metrics | v0.2.5 |
+| 📋 Phase 2 | Scanners — network, web, credential, OSINT, exploit verification | v0.3.0-rc1 |
+| 📋 Phase 3 | Attack graph — path analysis, kill-chain, chaining | v0.3.0-rc2 |
+| 📋 Phase 4 | Detection validation — MITRE coverage, alert latency | v0.3.0-rc3 |
+| 📋 Phase 5 | Commercial readiness — multi-tenant, RBAC, reporting | v0.3.0 GA |
 
 ## Development
 
@@ -110,29 +167,50 @@ redcheck/
 # Install dev dependencies
 pip install -e ".[dev]"
 
-# Run tests
+# Run full test suite
 pytest tests/ -v --cov=redcheck
+
+# Quick smoke test
+pytest tests/ -q --tb=short
 
 # Lint + format
 ruff check redcheck/ tests/
 ruff format redcheck/ tests/
 
-# Type check
+# Type checking
 mypy --strict redcheck/
 
-# Security scan
+# Security audit
 bandit -r redcheck/ -c pyproject.toml
 
-# Build
+# Build wheel
 python -m build
 
-# Docker
+# Docker (runtime)
 docker build --target runtime -t redcheck246:latest .
+
+# Docker (development)
 docker build --target dev -t redcheck246:dev .
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the full developer guide.
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the full developer guide. All contributions must pass:
+
+- `ruff check` — zero warnings
+- `mypy --strict` — zero errors
+- `bandit` — zero CRITICAL/HIGH findings
+- `pytest` — all tests passing
+- CodeQL — zero open findings
 
 ## License
 
 Proprietary. See [LICENSE.txt](LICENSE.txt) for details.
+
+---
+
+<div align="center">
+
+**Built for security professionals. Gated by design. No exceptions.**
+
+</div>
