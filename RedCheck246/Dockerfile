@@ -23,13 +23,15 @@ RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
 # Install dependencies first (cacheable layer)
-COPY pyproject.toml ./
-RUN pip install --no-cache-dir --upgrade pip && \
+# README.md is required by hatchling for metadata generation
+COPY pyproject.toml README.md ./
+RUN mkdir -p redcheck && touch redcheck/__init__.py && \
+    pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir .
 
-# Copy source code and reinstall (for editable-like behaviour)
+# Copy full source code and reinstall with real package
 COPY . .
-RUN pip install --no-cache-dir .
+RUN pip install --no-cache-dir --no-deps .
 
 # ---------------------------------------------------------------------------
 # Stage 2: Runtime
