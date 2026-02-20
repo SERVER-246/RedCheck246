@@ -67,7 +67,7 @@ jobs:
 
       - name: Upload coverage
         if: matrix.python-version == '3.13'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: coverage-report
           path: RedCheck246/coverage.xml
@@ -127,7 +127,7 @@ jobs:
           python -m build
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: redcheck246-dist
           path: RedCheck246/dist/
