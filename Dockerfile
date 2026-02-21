@@ -23,8 +23,8 @@ RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
 # Install dependencies first (cacheable layer)
-# README.md is required by hatchling for metadata generation
-COPY pyproject.toml README.md ./
+# README.md and LICENSE are required by hatchling for metadata generation
+COPY pyproject.toml README.md LICENSE ./
 RUN mkdir -p redcheck && touch redcheck/__init__.py && \
     pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir .
