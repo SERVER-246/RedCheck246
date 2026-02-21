@@ -8,7 +8,7 @@
 [![CodeQL](https://github.com/SERVER-246/RedCheck246/actions/workflows/codeql.yml/badge.svg)](https://github.com/SERVER-246/RedCheck246/actions/workflows/codeql.yml)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![Tests](https://img.shields.io/badge/tests-157%20passing-brightgreen.svg)](#)
-[![License](https://img.shields.io/badge/license-Proprietary-red.svg)](LICENSE.txt)
+[![License](https://img.shields.io/badge/license-Proprietary-red.svg)](LICENSE)
 [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
 
 </div>
@@ -211,7 +211,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the full developer guide. All contrib
 
 ## License
 
-Proprietary. See [LICENSE.txt](LICENSE.txt) for details.
+Proprietary. See [LICENSE](LICENSE) for details.
 
 ---
 
