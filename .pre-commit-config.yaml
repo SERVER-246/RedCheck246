@@ -32,11 +32,11 @@ repos:
           - pydantic>=2.0
           - types-PyYAML
         args: ["--ignore-missing-imports"]
-        files: "^RedCheck246/redcheck/"
+        files: "^redcheck/"
 
   - repo: https://github.com/PyCQA/bandit
     rev: 1.9.3
     hooks:
       - id: bandit
-        args: ["-c", "RedCheck246/pyproject.toml", "-r"]
-        files: "^RedCheck246/redcheck/"
+        args: ["-c", "pyproject.toml", "-r"]
+        files: "^redcheck/"

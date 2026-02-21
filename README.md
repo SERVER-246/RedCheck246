@@ -56,13 +56,11 @@ RoE Signature → Activation Code → Runtime Mode Check → Offensive Controls 
 ## Quick Start
 
 ```bash
-# Clone (project only — excludes internal planning docs)
-git clone --filter=blob:none --sparse https://github.com/SERVER-246/RedCheck246.git
-cd RedCheck246
-git sparse-checkout set RedCheck246
+# Clone and install
+git clone https://github.com/SERVER-246/RedCheck246.git
 cd RedCheck246
 
-# Install
+# Set up virtual environment
 python3 -m venv .venv
 source .venv/bin/activate        # Linux/macOS
 # .venv\Scripts\activate         # Windows

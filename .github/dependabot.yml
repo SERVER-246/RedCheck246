@@ -6,7 +6,7 @@ version: 2
 updates:
   # Python dependencies (pip)
   - package-ecosystem: "pip"
-    directory: "/RedCheck246"
+    directory: "/"
     schedule:
       interval: "weekly"
       day: "monday"
@@ -34,7 +34,7 @@ updates:
 
   # Docker
   - package-ecosystem: "docker"
-    directory: "/RedCheck246"
+    directory: "/"
     schedule:
       interval: "weekly"
     labels:

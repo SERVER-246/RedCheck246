@@ -43,3 +43,19 @@ logs/*.log
 
 # Packaged skills
 *.skill
+# Local archive & planning docs (not for public repo)
+ARCHIVE/
+TEST-env/
+WSL_TEST_COMMANDS.txt
+ep.txt
+Dev_Directive.md
+Ddos doc.docx
+skill-creator-0.1.0/
+
+# Test / coverage artifacts
+.coverage
+.pytest_cache/
+htmlcov/
+coverage.xml
+.ruff_cache/
+.mypy_cache/

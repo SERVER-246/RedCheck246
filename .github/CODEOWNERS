@@ -5,14 +5,14 @@
 * @SERVER-246
 
 # Security-critical modules require explicit review
-RedCheck246/redcheck/security/ @SERVER-246
-RedCheck246/redcheck/core/policy_engine.py @SERVER-246
-RedCheck246/redcheck/core/activation_engine.py @SERVER-246
-RedCheck246/redcheck/core/audit.py @SERVER-246
+redcheck/security/ @SERVER-246
+redcheck/core/policy_engine.py @SERVER-246
+redcheck/core/activation_engine.py @SERVER-246
+redcheck/core/audit.py @SERVER-246
 
 # CI/CD changes
 .github/ @SERVER-246
 
 # Docker
-RedCheck246/Dockerfile @SERVER-246
-RedCheck246/docker-compose.yml @SERVER-246
+Dockerfile @SERVER-246
+docker-compose.yml @SERVER-246
