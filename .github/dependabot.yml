@@ -14,7 +14,7 @@ updates:
     labels:
       - "dependencies"
       - "python"
-    reviewers:
+    assignees:
       - "SERVER-246"
     commit-message:
       prefix: "deps"
