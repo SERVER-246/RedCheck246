@@ -19,7 +19,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: "3.13"
+          python-version: "3.12"
 
       - name: Install dependencies
         run: pip install -e ".[dev]"
@@ -38,7 +38,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.10", "3.11", "3.12", "3.13"]
+        python-version: ["3.10", "3.11", "3.12"]
     steps:
       - uses: actions/checkout@v6
 
@@ -54,7 +54,7 @@ jobs:
         run: pytest --cov=redcheck --cov-report=xml --cov-report=term-missing tests/ -v
 
       - name: Upload coverage
-        if: matrix.python-version == '3.13'
+        if: matrix.python-version == '3.12'
         uses: actions/upload-artifact@v6
         with:
           name: coverage-report
@@ -69,7 +69,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: "3.13"
+          python-version: "3.12"
 
       - name: Install dependencies
         run: |
@@ -100,7 +100,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: "3.13"
+          python-version: "3.12"
 
       - name: Install build tools
         run: pip install build

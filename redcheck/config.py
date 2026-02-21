@@ -59,6 +59,21 @@ class RedCheckConfig(BaseSettings):
     request_timeout_seconds: int = Field(default=10, ge=1, le=30)
     scan_timeout_seconds: int = Field(default=300, ge=1, le=600)
 
+    # Extended rate limits (Phase 1)
+    tcp_connections_per_second: int = Field(default=5, ge=1, le=20)
+    max_concurrent_targets: int = Field(default=3, ge=1, le=10)
+    per_target_timeout_seconds: int = Field(default=60, ge=1, le=120)
+    payload_batch_size: int = Field(default=50, ge=1, le=200)
+    osint_api_rate_rps: int = Field(default=5, ge=1, le=20)
+
+    # Metrics
+    metrics_db_path: Path | None = None
+    metrics_rotation_days: int = Field(default=1, ge=1, le=30)
+
+    # Multi-tenant
+    multi_tenant_enabled: bool = False
+    default_tenant_id: str = "default"
+
     @field_validator("runtime_mode", mode="before")
     @classmethod
     def coerce_runtime_mode(cls, v: Any) -> Any:

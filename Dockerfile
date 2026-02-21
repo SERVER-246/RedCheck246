@@ -9,7 +9,7 @@
 # ---------------------------------------------------------------------------
 # Stage 1: Builder
 # ---------------------------------------------------------------------------
-FROM python:3.14-slim AS builder
+FROM python:3.12-slim AS builder
 
 WORKDIR /build
 
@@ -36,13 +36,13 @@ RUN pip install --no-cache-dir --no-deps .
 # ---------------------------------------------------------------------------
 # Stage 2: Runtime
 # ---------------------------------------------------------------------------
-FROM python:3.14-slim AS runtime
+FROM python:3.12-slim AS runtime
 
 LABEL org.opencontainers.image.title="RedCheck246" \
       org.opencontainers.image.description="Policy-gated security assessment framework" \
       org.opencontainers.image.source="https://github.com/SERVER-246/RedCheck246" \
       org.opencontainers.image.vendor="SERVER-246" \
-      org.opencontainers.image.version="0.2.0"
+      org.opencontainers.image.version="0.2.5"
 
 # Install runtime system dependencies for recon tooling
 RUN apt-get update && \

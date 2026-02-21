@@ -63,8 +63,14 @@ class BasePlugin(ABC):
 
     Optional overrides:
     - ``capability``: risk classification (PASSIVE / ACTIVE / DESTRUCTIVE)
+    - ``required_controls``: list of ``OffensiveControls`` flags needed
+    - ``timeout_seconds``: per-execution timeout (1–600)
+    - ``rate_limit_rps``: per-second rate limit (1–50)
+    - ``mitre_techniques``: MITRE ATT&CK technique IDs
+    - ``requires_isolation``: whether Docker sandbox is needed
     - ``setup()`` / ``teardown()``: lifecycle hooks
     - ``health_check()``: liveness probe
+    - ``aexecute(context)``: async execution override
     """
 
     name: str = "unnamed"
@@ -73,6 +79,13 @@ class BasePlugin(ABC):
     requires_authorization: bool = True
     category: str = "general"  # recon, sast, dast, fuzzing, supply_chain
     capability: PluginCapability = PluginCapability.PASSIVE
+
+    # Phase 1 extensions
+    required_controls: list[str] = []
+    timeout_seconds: int = 60
+    rate_limit_rps: int = 10
+    mitre_techniques: list[str] = []
+    requires_isolation: bool = False
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         super().__init_subclass__(**kwargs)
@@ -111,6 +124,14 @@ class BasePlugin(ABC):
             success=True,
             metadata={"mode": "dry-run", "description": f"Dry run of {self.name}"},
         )
+
+    async def aexecute(self, context: dict[str, Any]) -> PluginResult:
+        """Async execution entry point.
+
+        Default implementation delegates to the synchronous ``execute()``
+        method.  Override this in plugins that need true async I/O.
+        """
+        return self.execute(context)
 
     def validate_context(self, context: dict[str, Any]) -> tuple[bool, str]:
         """Validate that the context has everything this plugin needs."""

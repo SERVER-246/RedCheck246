@@ -333,6 +333,107 @@ def status() -> None:
 
 
 # ---------------------------------------------------------------------------
+# research (Phase 1)
+# ---------------------------------------------------------------------------
+
+
+@app.command()
+def research(
+    roe: str = typer.Option(..., "--roe", "-r", help="Path to RoE YAML file"),
+    plugin: str = typer.Option("passive-recon", "--plugin", "-p", help="Plugin to run"),
+) -> None:
+    """Run a plugin in RESEARCH mode (isolated lab environment)."""
+    from redcheck.models import RuntimeMode
+
+    orch = Orchestrator()
+    try:
+        orch.load_engagement(roe)
+    except PolicyDeniedException as e:
+        out.print(f"[red]✗ POLICY DENIED[/red] {e}")
+        raise typer.Exit(2) from None
+
+    out.print(f"[cyan]ℹ[/cyan] Running [bold]{plugin}[/bold] in RESEARCH mode (dry-run)")
+    result = orch.run_plugin(plugin, dry_run=True)
+    result_dict = {
+        "plugin_name": result.plugin_name,
+        "success": result.success,
+        "findings": result.findings if isinstance(result.findings, list) else [],
+        "errors": result.errors if isinstance(result.errors, list) else [],
+        "metadata": result.metadata if isinstance(result.metadata, dict) else {},
+        "mode": "research",
+        "runtime_mode": RuntimeMode.RESEARCH.value,
+    }
+    format_scan_result(result_dict, _format)
+    orch.shutdown()
+
+
+# ---------------------------------------------------------------------------
+# report (Phase 1)
+# ---------------------------------------------------------------------------
+
+
+@app.command()
+def report(
+    engagement_dir: str = typer.Argument(..., help="Path to engagement directory"),
+    output_format: str = typer.Option("text", "--output", "-o", help="Output format: text, json"),
+) -> None:
+    """Generate a summary report for an engagement."""
+    eng_path = Path(engagement_dir)
+    if not eng_path.is_dir():
+        out.print(f"[red]✗[/red] Not a directory: {eng_path}")
+        raise typer.Exit(1)
+
+    reports_dir = eng_path / "reports"
+    if not reports_dir.exists():
+        out.print(f"[yellow]![/yellow] No reports directory found in {eng_path}")
+        raise typer.Exit(1)
+
+    report_files = list(reports_dir.glob("*.json")) + list(reports_dir.glob("*.yaml"))
+    report_data = {
+        "engagement_dir": str(eng_path),
+        "report_count": len(report_files),
+        "reports": [f.name for f in report_files],
+    }
+
+    if output_format == "json":
+        out.print_json(json.dumps(report_data, indent=2, default=str))
+    else:
+        out.print(f"[bold]Engagement Report: {eng_path.name}[/bold]")
+        out.print(f"  Reports found: {len(report_files)}")
+        for rf in report_files:
+            out.print(f"    • {rf.name}")
+
+    audit = get_audit_logger()
+    audit.log(action="REPORT_GENERATED", details=f"Report for {eng_path.name}")
+
+
+# ---------------------------------------------------------------------------
+# tenant (Phase 1)
+# ---------------------------------------------------------------------------
+
+
+@app.command()
+def tenant(
+    show: bool = typer.Option(False, "--show", help="Show current tenant configuration"),
+) -> None:
+    """Manage multi-tenant configuration."""
+    from redcheck.config import get_config
+
+    config = get_config()
+
+    tenant_data = {
+        "multi_tenant_enabled": config.multi_tenant_enabled,
+        "default_tenant_id": config.default_tenant_id,
+    }
+    if _format == "json":
+        out.print_json(json.dumps(tenant_data, indent=2))
+    else:
+        out.print("[bold]Tenant Configuration[/bold]")
+        out.print(f"  Multi-tenant: {'enabled' if config.multi_tenant_enabled else 'disabled'}")
+        out.print(f"  Default tenant: {config.default_tenant_id}")
+
+
+# ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
 

@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 # ---------------------------------------------------------------------------
 # Enums
@@ -26,6 +26,7 @@ class RuntimeMode(str, enum.Enum):
     CI = "ci"
     STAGING = "staging"
     PRODUCTION = "production"
+    RESEARCH = "research"
 
 
 class PluginCapability(str, enum.Enum):
@@ -56,9 +57,54 @@ class AuditLevel(str, enum.Enum):
     SECURITY = "security"
 
 
+class OperatorRole(str, enum.Enum):
+    """Operator roles for RBAC enforcement."""
+
+    VIEWER = "viewer"
+    OPERATOR = "operator"
+    SENIOR_OPERATOR = "senior_operator"
+    ADMIN = "admin"
+    AUDITOR = "auditor"
+
+
 # ---------------------------------------------------------------------------
 # Core Models
 # ---------------------------------------------------------------------------
+
+
+class OffensiveControls(BaseModel):
+    """Explicit boolean flags gating each offensive capability.
+
+    Every flag defaults to False (safe-by-default posture).
+    Each flag maps to a specific set of plugin ``required_controls``.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    allow_auth_testing: bool = False
+    allow_exploit_validation: bool = False
+    allow_data_sampling: bool = False
+    allow_credential_spraying: bool = False
+    allow_privesc_probing: bool = False
+    chain_mode: bool = False
+
+    def has_controls(self, required: list[str]) -> bool:
+        """Check if all required control flags are True."""
+        return all(getattr(self, ctrl, False) for ctrl in required)
+
+
+class PluginMetadata(BaseModel):
+    """Declarative metadata attached to each plugin class."""
+
+    model_config = ConfigDict(frozen=True)
+
+    name: str
+    capability: PluginCapability
+    required_controls: list[str] = Field(default_factory=list)
+    timeout_seconds: int = Field(default=60, ge=1, le=600)
+    rate_limit_rps: int = Field(default=10, ge=1, le=50)
+    mitre_techniques: list[str] = Field(default_factory=list)
+    requires_isolation: bool = False
 
 
 class TargetSpec(BaseModel):
@@ -82,6 +128,11 @@ class Finding(BaseModel):
     cwe_id: str | None = None
     remediation: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
+    plugin: str | None = None
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    evidence_digest: str | None = None
+    sampled_data_len: int | None = None
+    mitre_technique: str | None = None
 
 
 class Evidence(BaseModel):
@@ -93,6 +144,7 @@ class Evidence(BaseModel):
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     encrypted: bool = False
     size_bytes: int | None = None
+    provenance_tag: str | None = None
 
 
 class PluginResult(BaseModel):
@@ -133,6 +185,11 @@ class EngagementContext(BaseModel):
     roe_signed: bool = False
     activation_verified: bool = False
     session_code: str | None = None
+    tenant_id: str | None = None
+    offensive_controls: OffensiveControls = Field(default_factory=OffensiveControls)
+    safe_mode: bool = True
+    runtime_mode: RuntimeMode = RuntimeMode.DEV
+    session_id: str | None = None
 
     @field_validator("authorizer")
     @classmethod

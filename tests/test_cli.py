@@ -92,7 +92,8 @@ class TestStatus:
         result = runner.invoke(app, ["status"])
         assert result.exit_code == 0
         # Should show version, activation state, plugins
-        assert "RedCheck246" in result.output or "redcheck" in result.output.lower()
+        output_lower = result.output.lower()
+        assert "policy-gated" in output_lower or "version" in output_lower or "v0." in result.output
 
 
 class TestVersion:

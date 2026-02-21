@@ -5,7 +5,7 @@ Public API surface exported here for convenience.
 
 from __future__ import annotations
 
-__version__ = "0.2.0"
+__version__ = "0.2.5"
 
 __all__ = [
     "__version__",
@@ -22,19 +22,29 @@ __all__ = [
     "NetworkError",
     "ScanTimeoutError",
     "ScopeViolationError",
+    "OffensiveControlError",
+    "ChainModeError",
+    "IsolationError",
+    "RateLimitExceededError",
+    "TenantIsolationError",
 ]
 
 from redcheck.exceptions import (
     ActivationError,
+    ChainModeError,
     ConfigurationError,
     ContextValidationError,
     CryptoError,
+    IsolationError,
     NetworkError,
+    OffensiveControlError,
     PluginError,
     PluginNotFoundError,
     PolicyDeniedException,
+    RateLimitExceededError,
     RedCheckError,
     RoEValidationError,
     ScanTimeoutError,
     ScopeViolationError,
+    TenantIsolationError,
 )

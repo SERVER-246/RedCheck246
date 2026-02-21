@@ -223,3 +223,118 @@ class ScopeViolationError(PolicyDeniedException):
             f"Target '{target}' is outside the authorized scope",
             engagement_id=engagement_id,
         )
+
+
+# ---------------------------------------------------------------------------
+# Offensive Controls & Isolation
+# ---------------------------------------------------------------------------
+
+
+class OffensiveControlError(PolicyDeniedException):
+    """Raised when required offensive control flags are not enabled."""
+
+    def __init__(
+        self,
+        plugin_name: str,
+        missing_controls: list[str],
+        *,
+        engagement_id: str | None = None,
+    ) -> None:
+        self.missing_controls = missing_controls
+        super().__init__(
+            plugin_name,
+            f"Missing offensive controls: {', '.join(missing_controls)}",
+            engagement_id=engagement_id,
+        )
+
+    def to_dict(self) -> dict[str, object]:
+        d = super().to_dict()
+        d["missing_controls"] = self.missing_controls
+        return d
+
+
+class ChainModeError(PolicyDeniedException):
+    """Raised when attack path chaining is attempted without chain_mode=True."""
+
+    def __init__(
+        self,
+        plugin_name: str,
+        *,
+        engagement_id: str | None = None,
+    ) -> None:
+        super().__init__(
+            plugin_name,
+            "Attack path chaining requires chain_mode=True in OffensiveControls",
+            engagement_id=engagement_id,
+        )
+
+
+class IsolationError(RedCheckError):
+    """Raised when a DESTRUCTIVE plugin runs without Docker sandbox."""
+
+    def __init__(
+        self,
+        plugin_name: str,
+        *,
+        engagement_id: str | None = None,
+    ) -> None:
+        self.plugin_name = plugin_name
+        super().__init__(
+            f"Plugin '{plugin_name}' requires Docker isolation for DESTRUCTIVE capability",
+            engagement_id=engagement_id,
+        )
+
+    def to_dict(self) -> dict[str, object]:
+        d = super().to_dict()
+        d["plugin_name"] = self.plugin_name
+        return d
+
+
+class RateLimitExceededError(RedCheckError):
+    """Raised when a plugin exceeds its rate limit allocation."""
+
+    def __init__(
+        self,
+        plugin_name: str,
+        rate_limit_rps: float,
+        *,
+        engagement_id: str | None = None,
+    ) -> None:
+        self.plugin_name = plugin_name
+        self.rate_limit_rps = rate_limit_rps
+        super().__init__(
+            f"Plugin '{plugin_name}' exceeded rate limit of {rate_limit_rps} req/s",
+            engagement_id=engagement_id,
+        )
+
+    def to_dict(self) -> dict[str, object]:
+        d = super().to_dict()
+        d.update(plugin_name=self.plugin_name, rate_limit_rps=self.rate_limit_rps)
+        return d
+
+
+class TenantIsolationError(RedCheckError):
+    """Raised on cross-tenant access attempts."""
+
+    def __init__(
+        self,
+        requested_tenant: str,
+        current_tenant: str,
+        *,
+        engagement_id: str | None = None,
+    ) -> None:
+        self.requested_tenant = requested_tenant
+        self.current_tenant = current_tenant
+        super().__init__(
+            f"Cross-tenant access denied: requested '{requested_tenant}' "
+            f"from tenant '{current_tenant}'",
+            engagement_id=engagement_id,
+        )
+
+    def to_dict(self) -> dict[str, object]:
+        d = super().to_dict()
+        d.update(
+            requested_tenant=self.requested_tenant,
+            current_tenant=self.current_tenant,
+        )
+        return d
