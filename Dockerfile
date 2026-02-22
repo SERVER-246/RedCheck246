@@ -42,7 +42,7 @@ LABEL org.opencontainers.image.title="RedCheck246" \
       org.opencontainers.image.description="Policy-gated security assessment framework" \
       org.opencontainers.image.source="https://github.com/SERVER-246/RedCheck246" \
       org.opencontainers.image.vendor="SERVER-246" \
-      org.opencontainers.image.version="0.2.5"
+      org.opencontainers.image.version="0.3.0rc1"
 
 # Install runtime system dependencies for recon tooling
 RUN apt-get update && \

@@ -1,0 +1,86 @@
+{
+  "version": "1.0.0",
+  "description": "RedCheck246 Safe PoC Library — curated, non-destructive exploit verification payloads",
+  "pocs": [
+    {
+      "cve_id": "CVE-2021-44228",
+      "type": "http_probe",
+      "service": "log4j",
+      "probe_path": "/",
+      "indicator": "${jndi:",
+      "severity": "critical",
+      "mitre": "T1190",
+      "description": "Log4Shell detection via JNDI lookup indicator"
+    },
+    {
+      "cve_id": "CVE-2023-44487",
+      "type": "header_check",
+      "service": "http2",
+      "header": "HTTP/2",
+      "absent": false,
+      "severity": "high",
+      "mitre": "T1498",
+      "description": "HTTP/2 Rapid Reset — check if HTTP/2 is enabled"
+    },
+    {
+      "cve_id": "CVE-2024-3094",
+      "type": "version_check",
+      "service": "xz",
+      "version_min": "5.6.0",
+      "version_max": "5.6.1",
+      "severity": "critical",
+      "mitre": "T1195.002",
+      "description": "XZ Utils backdoor version range check"
+    },
+    {
+      "cve_id": "CVE-2022-22965",
+      "type": "http_probe",
+      "service": "spring-framework",
+      "probe_path": "/actuator/health",
+      "indicator": "\"status\":\"UP\"",
+      "severity": "critical",
+      "mitre": "T1190",
+      "description": "Spring4Shell — Spring Actuator exposure check"
+    },
+    {
+      "cve_id": "CVE-2023-38408",
+      "type": "version_check",
+      "service": "openssh",
+      "version_min": "0.0.0",
+      "version_max": "9.3p1",
+      "severity": "critical",
+      "mitre": "T1021.004",
+      "description": "OpenSSH PKCS#11 RCE version check"
+    },
+    {
+      "cve_id": "CVE-2023-23397",
+      "type": "header_check",
+      "service": "outlook",
+      "header": "X-MS-Exchange-Organization",
+      "absent": false,
+      "severity": "critical",
+      "mitre": "T1557",
+      "description": "Outlook NTLM relay — Exchange header exposure"
+    },
+    {
+      "cve_id": "CVE-2021-34527",
+      "type": "version_check",
+      "service": "windows-print-spooler",
+      "version_min": "0.0.0",
+      "version_max": "99.99.99",
+      "severity": "critical",
+      "mitre": "T1068",
+      "description": "PrintNightmare version check"
+    },
+    {
+      "cve_id": "CVE-2023-32233",
+      "type": "version_check",
+      "service": "linux-kernel",
+      "version_min": "5.0.0",
+      "version_max": "6.3.1",
+      "severity": "high",
+      "mitre": "T1068",
+      "description": "Netfilter nf_tables use-after-free version check"
+    }
+  ]
+}
