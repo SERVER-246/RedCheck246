@@ -7,7 +7,7 @@
 [![CI](https://github.com/SERVER-246/RedCheck246/actions/workflows/ci.yml/badge.svg)](https://github.com/SERVER-246/RedCheck246/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/SERVER-246/RedCheck246/actions/workflows/codeql.yml/badge.svg)](https://github.com/SERVER-246/RedCheck246/actions/workflows/codeql.yml)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/tests-157%20passing-brightgreen.svg)](#)
+[![Tests](https://img.shields.io/badge/tests-578%20passing-brightgreen.svg)](#)
 [![License](https://img.shields.io/badge/license-Proprietary-red.svg)](LICENSE)
 [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
 
@@ -36,10 +36,17 @@ RoE Signature → Activation Code → Runtime Mode Check → Offensive Controls 
 - **Rate limiting** — Token bucket with configurable hard caps (never exceed `constants.py`)
 
 ### 🔌 Plugin Architecture
-- **5 built-in plugins** — Passive recon, SAST, DAST, protocol fuzzing, supply chain audit
+- **19 plugins across 9 categories** — Recon, SAST, DAST, fuzzing, supply chain, network scanning, crypto analysis, OSINT, exploit verification
 - **Auto-discovery** — Plugins register via `__init_subclass__` and entry points
 - **Lifecycle hooks** — `setup()`, `execute()`, `teardown()`, `health_check()`, `dry_run()`
 - **Capability classification** — `PASSIVE`, `ACTIVE`, `DESTRUCTIVE` with enforcement matrix
+
+### 🌐 Network & Exploit Verification (Phase 2)
+- **Network scanning** — TCP SYN/connect scanning, service fingerprinting, topology graph mapping
+- **Web application testing** — Auth/session testing, IDOR validation, injection PoC simulation
+- **Cryptographic analysis** — Hash strength scoring, password entropy (NIST SP 800-63B), algorithm migration guidance
+- **OSINT intelligence** — Certificate Transparency monitoring, typosquat detection, breach lookup (k-anonymity)
+- **Exploit verification** — CVE↔CPE mapping, EPSS probability, KEV cross-reference, sandboxed exploit validation
 
 ### 🔐 Cryptographic Security
 - **Evidence encryption** — AES-256-GCM with PBKDF2-HMAC-SHA512 key derivation
@@ -51,7 +58,7 @@ RoE Signature → Activation Code → Runtime Mode Check → Offensive Controls 
 - **Rich CLI** — Beautiful terminal output with tables, banners, JSON export via Typer
 - **Async-first** — All network plugins use `httpx.AsyncClient`
 - **Docker-ready** — Multi-stage build with non-root user (UID 1000), read-only filesystem
-- **Full test coverage** — 157+ tests across Python 3.10–3.13
+- **Full test coverage** — 578+ tests across Python 3.10–3.13
 
 ## Quick Start
 
@@ -101,6 +108,17 @@ redcheck status
 | `dast-scanner` | DAST | ACTIVE | T1190 | Security headers, SSL/TLS configuration, HTTP methods, cookie analysis |
 | `protocol-fuzzer` | Fuzzing | ACTIVE | T1499 | HTTP parameter/header/body fuzzing, SQLi/XSS/CMDi payload library (200+) |
 | `supply-chain-audit` | Supply Chain | PASSIVE | T1195.002 | OSV.dev vulnerability queries, license compliance, typosquatting detection, SBOM |
+| `network-scanner` | Network | ACTIVE | T1046, T1595.001 | TCP SYN/connect scanning, service fingerprinting, topology mapping |
+| `auth-session-tester` | DAST | ACTIVE | T1078, T1110.001 | Session fixation, cookie security, auth bypass, CSRF token validation |
+| `idor-validator` | DAST | ACTIVE | T1565.001 | Insecure direct object reference detection with UUID/integer ID permutation |
+| `injection-poc-simulator` | DAST | ACTIVE | T1190, T1059 | SQLi/XSS/CMDi proof-of-concept generation with safe payload library |
+| `hash-strength-analyzer` | Crypto | PASSIVE | T1110.002 | Algorithm identification, collision resistance scoring, migration recommendations |
+| `password-entropy-scorer` | Crypto | PASSIVE | T1110, T1078 | Shannon entropy, charset analysis, dictionary proximity, NIST SP 800-63B compliance |
+| `ct-log-monitor` | OSINT | PASSIVE | T1596.003 | Certificate Transparency log monitoring, rogue cert detection, domain alerting |
+| `typosquat-detector` | OSINT | PASSIVE | T1583.001 | Levenshtein/homoglyph/bitsquat domain permutation with DNS live-check |
+| `breach-lookup` | OSINT | PASSIVE | T1589.001 | Credential breach database queries with k-anonymity (HIBP-compatible) |
+| `cve-mapper` | Exploit | PASSIVE | T1595.002 | CPE↔CVE mapping, CVSS v3.1 scoring, EPSS probability, KEV cross-reference |
+| `exploit-verifier` | Exploit | DESTRUCTIVE | T1203, T1190 | Safe exploit validation with sandbox isolation and rollback verification |
 
 ## Architecture
 
@@ -116,7 +134,9 @@ redcheck/
 │   ├── audit.py               # AES-256-GCM encrypted hash-chained audit
 │   ├── orchestrator.py        # Engagement lifecycle + plugin dispatch
 │   ├── policy_engine.py       # Central policy gate (RoE × mode × capability)
-│   └── activation_engine.py   # Argon2id activation code management
+│   ├── activation_engine.py   # Argon2id activation code management
+│   ├── rate_limiter.py        # Token-bucket rate limiting
+│   └── metrics.py             # Prometheus-compatible metrics collector
 ├── plugins/
 │   ├── _http.py               # Shared SSL context (scanning_ssl_context)
 │   ├── base_plugin.py         # BasePlugin ABC + PluginRegistry
@@ -124,7 +144,14 @@ redcheck/
 │   ├── sast/                  # Static analysis (bandit + regex)
 │   ├── dast/                  # Dynamic analysis (6 async modules)
 │   ├── fuzzing/               # Protocol fuzzing (200+ payloads)
-│   └── supply_chain/          # Supply chain audit (OSV.dev + parsers)
+│   ├── supply_chain/          # Supply chain audit (OSV.dev + parsers)
+│   ├── network/               # Network scanning & topology mapping
+│   ├── crypto/                # Hash analysis & password entropy scoring
+│   ├── osint/                 # CT logs, typosquat detection, breach lookup
+│   └── exploit/               # CVE mapping & exploit verification
+├── data/
+│   ├── cve_cache.json         # Local CVE/CPE cache
+│   └── payloads/              # Safe exploit payload library
 └── security/
     ├── crypto.py              # AES-256-GCM, PBKDF2, HMAC, hashing
     ├── roe_validator.py       # YAML structure + time window validation
@@ -161,8 +188,8 @@ RedCheck246 follows a phased development approach. See [next_phase_execution_pla
 | Phase | Scope | Target |
 |:-----:|-------|--------|
 | ✅ 1–16 | Core framework, 5 plugins, crypto, CI/CD | v0.2.0 |
-| 🔄 Phase 1 | Foundation engines — models, orchestrator, rate limiting, metrics | v0.2.5 |
-| 📋 Phase 2 | Scanners — network, web, credential, OSINT, exploit verification | v0.3.0-rc1 |
+| ✅ Phase 1 | Foundation engines — models, orchestrator, rate limiting, metrics | v0.2.5 |
+| ✅ Phase 2 | Scanners — network, web, credential, OSINT, exploit verification | v0.3.0-rc1 |
 | 📋 Phase 3 | Attack graph — path analysis, kill-chain, chaining | v0.3.0-rc2 |
 | 📋 Phase 4 | Detection validation — MITRE coverage, alert latency | v0.3.0-rc3 |
 | 📋 Phase 5 | Commercial readiness — multi-tenant, RBAC, reporting | v0.3.0 GA |
