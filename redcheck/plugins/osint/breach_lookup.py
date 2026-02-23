@@ -32,8 +32,15 @@ _HIBP_RANGE_URL = "https://api.pwnedpasswords.com/range/{prefix}"
 
 
 def _sha1_hash(value: str) -> str:
-    """SHA-1 hash (uppercase hex) for HIBP k-anonymity."""
-    return hashlib.sha1(value.encode("utf-8")).hexdigest().upper()  # noqa: S324  # nosec B324
+    """SHA-1 hash (uppercase hex) for HIBP k-anonymity.
+
+    SHA-1 is **required** by the Have I Been Pwned Passwords API
+    k-anonymity protocol — this is NOT used for cryptographic security.
+    """
+    return hashlib.sha1(  # noqa: S324  # nosec B324
+        value.encode("utf-8"),
+        usedforsecurity=False,
+    ).hexdigest().upper()
 
 
 async def check_password_breach(

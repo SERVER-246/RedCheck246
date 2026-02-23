@@ -105,7 +105,7 @@ class TestCrawlerNormalization:
     def test_preserves_query(self):
         # Normalization strips fragment but query is part of path via urlparse
         result = AdvancedCrawler._normalize("https://a.com/search?q=test#top")
-        assert "a.com" in result
+        assert result.startswith("https://a.com/")  # CodeQL: not URL substring sanitization
 
 
 # ---------------------------------------------------------------------------

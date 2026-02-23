@@ -167,8 +167,9 @@ class TestCTLogParsing:
             "serial_number": "ABCDEF",
         }
         result = _parse_ct_entry(entry, "example.com")
-        assert "sub.example.com" in result["subdomains"]
-        assert "*.example.com" in result["subdomains"]
+        subdomains = result["subdomains"]
+        assert "sub.example.com" in subdomains
+        assert "*.example.com" in subdomains
         assert result["issuer"] == "Let's Encrypt"
 
 
