@@ -35,7 +35,7 @@ dependencies = [
 
 [project.optional-dependencies]
 pdf = [
-    "weasyprint>=60.0,<65.0",
+    "weasyprint>=60.0,<69.0",
 ]
 dev = [
     "pytest>=8.3,<10.0",
