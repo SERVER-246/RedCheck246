@@ -5,6 +5,39 @@ All notable changes to RedCheck246 are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] — 2025-06-22
+
+### 🏢 Phase 5 — Commercial Readiness
+
+#### Added
+
+- **Multi-Tenant Isolation** (`redcheck/core/multi_tenant.py`)
+  - Per-tenant directory sandboxing with `0o700` permissions
+  - Path traversal attack prevention (blocks `../`, null bytes, separators)
+  - Tenant ID validation (2–64 chars, strict alphanumeric pattern)
+  - Cross-tenant access detection and `TenantFilesystemManager` lifecycle
+
+- **Role-Based Access Control** (`redcheck/core/rbac.py`)
+  - 5-role × 6-action explicit permission matrix (no implicit inheritance)
+  - Roles: VIEWER, OPERATOR, SENIOR_OPERATOR, ADMIN, AUDITOR
+  - DESTRUCTIVE confirmation gate, `RBACEnforcer` and `RBACAction` enum
+
+- **Reporting & Evidence Export** (`redcheck/core/reporting.py`)
+  - JSON report generation with Ed25519 digital signatures
+  - Jinja2 HTML templates (`executive_summary.j2`, `technical_detail.j2`)
+  - PDF via optional weasyprint; graceful JSON-only fallback
+  - `ReportExporter` unified high-level API
+
+- **Audit Trail Export** (`redcheck/core/audit_export.py`)
+  - AES-256-GCM encrypted audit export/import with AAD
+
+- **SBOM Integration** (`redcheck/core/sbom_integration.py`)
+  - SPDX 2.3 JSON SBOM generation from installed packages
+
+- **CI/CD Expansion** — 5-job pipeline + mutation testing (`mutmut`) + `docker-compose.test.yml`
+- **New dependencies:** `jinja2>=3.1`, optional `weasyprint>=60.0`, dev `mutmut>=2.4`
+- **Version:** `0.3.0rc3` → `0.3.0` GA
+
 ## [0.2.0] — 2026-02-20
 
 ### Added

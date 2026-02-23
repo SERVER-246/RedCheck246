@@ -7,7 +7,7 @@
 [![CI](https://github.com/SERVER-246/RedCheck246/actions/workflows/ci.yml/badge.svg)](https://github.com/SERVER-246/RedCheck246/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/SERVER-246/RedCheck246/actions/workflows/codeql.yml/badge.svg)](https://github.com/SERVER-246/RedCheck246/actions/workflows/codeql.yml)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/tests-693%20passing-brightgreen.svg)](#)
+[![Tests](https://img.shields.io/badge/tests-829%20passing-brightgreen.svg)](#)
 [![License](https://img.shields.io/badge/license-Proprietary-red.svg)](LICENSE)
 [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
 
@@ -61,6 +61,13 @@ RoE Signature → Activation Code → Runtime Mode Check → Offensive Controls 
 - **Coverage computation** — Per-technique detection mapping with severity-based findings (high if <50%)
 - **Offline mode** — Pre-detected technique lists and simulated latencies for CI/testing environments
 
+### 🏢 Commercial Readiness (Phase 5)
+- **Multi-tenant isolation** — Per-tenant filesystem directories with path traversal defense
+- **Role-based access control** — 5-role × 6-action permission matrix (viewer→analyst→operator→admin→super_admin)
+- **Report generation** — JSON/PDF/HTML output with Ed25519 digital signatures and Jinja2 templates
+- **Encrypted audit export** — AES-256-GCM encrypted audit trail export/import with tamper detection
+- **SBOM generation** — SPDX 2.3 JSON software bill of materials
+
 ### 🔐 Cryptographic Security
 - **Evidence encryption** — AES-256-GCM with PBKDF2-HMAC-SHA512 key derivation
 - **Document signing** — Ed25519 public-key + HMAC-SHA256 dual-mode
@@ -71,7 +78,7 @@ RoE Signature → Activation Code → Runtime Mode Check → Offensive Controls 
 - **Rich CLI** — Beautiful terminal output with tables, banners, JSON export via Typer
 - **Async-first** — All network plugins use `httpx.AsyncClient`
 - **Docker-ready** — Multi-stage build with non-root user (UID 1000), read-only filesystem
-- **Full test coverage** — 693+ tests across Python 3.10–3.12
+- **Full test coverage** — 829+ tests across Python 3.10–3.12
 
 ## Quick Start
 
@@ -151,7 +158,13 @@ redcheck/
 │   ├── policy_engine.py       # Central policy gate (RoE × mode × capability)
 │   ├── activation_engine.py   # Argon2id activation code management
 │   ├── rate_limiter.py        # Token-bucket rate limiting
-│   └── metrics.py             # Prometheus-compatible metrics collector
+│   ├── metrics.py             # Prometheus-compatible metrics collector
+│   ├── multi_tenant.py        # Per-tenant filesystem isolation
+│   ├── rbac.py                # 5-role × 6-action RBAC permission matrix
+│   ├── reporting.py           # JSON/PDF/HTML report generation + Ed25519 signing
+│   ├── audit_export.py        # AES-256-GCM encrypted audit export/import
+│   ├── sbom_integration.py    # SPDX 2.3 SBOM generation
+│   └── report_templates/      # Jinja2 report templates (executive, technical, compliance)
 ├── plugins/
 │   ├── _http.py               # Shared SSL context (scanning_ssl_context)
 │   ├── base_plugin.py         # BasePlugin ABC + PluginRegistry
@@ -208,7 +221,7 @@ RedCheck246 follows a phased development approach. See [next_phase_execution_pla
 | ✅ Phase 2 | Scanners — network, web, credential, OSINT, exploit verification | v0.3.0-rc1 |
 | ✅ Phase 3 | Attack graph — path analysis, kill-chain, attacker-class scoping | v0.3.0-rc2 |
 | ✅ Phase 4 | Detection validation — MITRE coverage, alert latency | v0.3.0-rc3 |
-| 📋 Phase 5 | Commercial readiness — multi-tenant, RBAC, reporting | v0.3.0 GA |
+| ✅ Phase 5 | Commercial readiness — multi-tenant, RBAC, reporting, SBOM | v0.3.0 GA |
 
 ## Development
 

@@ -1,0 +1,66 @@
+# docker-compose.test.yml — Integration test fixtures for RedCheck246
+# Usage: docker compose -f docker-compose.test.yml up -d
+#        pytest tests/integration/ -v
+#        docker compose -f docker-compose.test.yml down
+
+version: "3.9"
+
+services:
+  # Lightweight HTTP target for web scanning tests
+  target-web:
+    image: nginx:alpine
+    ports:
+      - "8080:80"
+    volumes:
+      - ./tests/fixtures/nginx:/usr/share/nginx/html:ro
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:80/"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+
+  # DNS resolver for OSINT / DNS tests
+  target-dns:
+    image: coredns/coredns:latest
+    ports:
+      - "5353:53/udp"
+      - "5353:53/tcp"
+    volumes:
+      - ./tests/fixtures/coredns:/etc/coredns:ro
+    command: ["-conf", "/etc/coredns/Corefile"]
+    healthcheck:
+      test: ["CMD", "dig", "@localhost", "example.test", "+short"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+
+  # Multi-port target for network scanning benchmarks
+  target-multiport:
+    image: alpine:3.19
+    command:
+      - sh
+      - -c
+      - |
+        apk add --no-cache socat
+        for port in $(seq 8001 8100); do
+          socat TCP-LISTEN:$$port,fork,reuseaddr SYSTEM:"echo HTTP/1.0 200 OK; echo; echo port $$port" &
+        done
+        tail -f /dev/null
+    ports:
+      - "8001-8100:8001-8100"
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "8050"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis for shared state / cache in integration tests
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 3

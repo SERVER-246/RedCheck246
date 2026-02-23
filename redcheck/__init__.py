@@ -5,7 +5,7 @@ Public API surface exported here for convenience.
 
 from __future__ import annotations
 
-__version__ = "0.3.0rc3"
+__version__ = "0.3.0"
 
 __all__ = [
     "__version__",
@@ -27,8 +27,18 @@ __all__ = [
     "IsolationError",
     "RateLimitExceededError",
     "TenantIsolationError",
+    # Config
+    "RedCheckConfig",
+    # Models
+    "RuntimeMode",
+    "PluginCapability",
+    "OperatorRole",
+    # Phase 5 — Multi-Tenant & RBAC
+    "RBACAction",
 ]
 
+from redcheck.config import RedCheckConfig
+from redcheck.core.rbac import RBACAction
 from redcheck.exceptions import (
     ActivationError,
     ChainModeError,
@@ -48,3 +58,4 @@ from redcheck.exceptions import (
     ScopeViolationError,
     TenantIsolationError,
 )
+from redcheck.models import OperatorRole, PluginCapability, RuntimeMode

@@ -96,6 +96,24 @@ DETECTION_LATENCY_POLL_TIMEOUT_CAP: int = 300
 DETECTION_DEFAULT_EXPECTED_LATENCY_MS: float = 1000.0
 DETECTION_SLA_PASS_THRESHOLD_PERCENT: float = 80.0
 
+# ── Multi-Tenant Isolation ────────────────────────────────────────
+TENANT_ID_MIN_LENGTH: int = 2
+TENANT_ID_MAX_LENGTH: int = 64
+TENANT_ID_PATTERN: str = r"^[a-zA-Z0-9][a-zA-Z0-9._-]{0,62}[a-zA-Z0-9]$"
+TENANT_DIR_MODE: int = 0o700
+TENANT_SUBDIRS: tuple[str, ...] = ("engagements", "evidence", "logs", "reports")
+
+# ── RBAC ─────────────────────────────────────────────────────────
+RBAC_DEFAULT_ROLE: str = "viewer"
+RBAC_ACTIONS: tuple[str, ...] = (
+    "read_reports",
+    "run_passive",
+    "run_active",
+    "run_destructive",
+    "manage_tenants",
+    "export_evidence",
+)
+
 # ── Metrics ──────────────────────────────────────────────────────
 METRICS_ROTATION_DAYS_DEFAULT: int = 1
 METRICS_TABLE_NAME: str = "metrics_ts"

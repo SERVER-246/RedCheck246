@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head><title>RedCheck Technical Report — {{ metadata.engagement_id }}</title>
+<style>
+  body { font-family: monospace; margin: 2em; font-size: 13px; }
+  h1 { color: #2c3e50; }
+  pre { background: #ecf0f1; padding: 1em; overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; margin-top: 1em; }
+  th, td { border: 1px solid #bdc3c7; padding: 6px; text-align: left; }
+  th { background-color: #2c3e50; color: white; }
+</style>
+</head>
+<body>
+<h1>Technical Detail Report</h1>
+<p><strong>Engagement:</strong> {{ metadata.engagement_id }}</p>
+<p><strong>Generated:</strong> {{ metadata.generated_at }}</p>
+
+{% for f in findings %}
+<h2>Finding #{{ loop.index }}: {{ f.finding_type }}</h2>
+<table>
+  <tr><td><strong>Target</strong></td><td>{{ f.target }}</td></tr>
+  <tr><td><strong>Severity</strong></td><td>{{ f.severity }}</td></tr>
+  <tr><td><strong>Detail</strong></td><td>{{ f.detail }}</td></tr>
+  {% if f.cvss_score %}<tr><td><strong>CVSS</strong></td><td>{{ f.cvss_score }}</td></tr>{% endif %}
+  {% if f.cwe_id %}<tr><td><strong>CWE</strong></td><td>{{ f.cwe_id }}</td></tr>{% endif %}
+  {% if f.remediation %}<tr><td><strong>Remediation</strong></td><td>{{ f.remediation }}</td></tr>{% endif %}
+  {% if f.mitre_technique %}<tr><td><strong>MITRE</strong></td><td>{{ f.mitre_technique }}</td></tr>{% endif %}
+</table>
+{% endfor %}
+
+<h2>Evidence Artifacts ({{ evidence | length }})</h2>
+<table>
+  <tr><th>#</th><th>Type</th><th>Path</th><th>SHA-256</th></tr>
+  {% for e in evidence %}
+  <tr>
+    <td>{{ loop.index }}</td>
+    <td>{{ e.evidence_type }}</td>
+    <td>{{ e.path }}</td>
+    <td><code>{{ e.sha256[:16] }}…</code></td>
+  </tr>
+  {% endfor %}
+</table>
+</body>
+</html>

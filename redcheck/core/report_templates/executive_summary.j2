@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head><title>RedCheck Report — {{ metadata.engagement_id }}</title>
+<style>
+  body { font-family: Arial, sans-serif; margin: 2em; }
+  h1 { color: #c0392b; }
+  table { border-collapse: collapse; width: 100%; margin-top: 1em; }
+  th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+  th { background-color: #c0392b; color: white; }
+  .critical { color: #c0392b; font-weight: bold; }
+  .high { color: #e67e22; font-weight: bold; }
+  .medium { color: #f1c40f; }
+  .low { color: #27ae60; }
+</style>
+</head>
+<body>
+<h1>Executive Summary</h1>
+<p><strong>Engagement:</strong> {{ metadata.engagement_id }}</p>
+<p><strong>Generated:</strong> {{ metadata.generated_at }}</p>
+<p><strong>Scanner:</strong> {{ summary.scanner }}</p>
+<p><strong>Duration:</strong> {{ "%.1f"|format(summary.duration_seconds) }}s</p>
+
+<h2>Severity Breakdown</h2>
+<table>
+  <tr><th>Severity</th><th>Count</th></tr>
+  {% for sev, count in summary.severity_counts.items() %}
+  <tr><td class="{{ sev }}">{{ sev | upper }}</td><td>{{ count }}</td></tr>
+  {% endfor %}
+</table>
+
+<h2>Findings ({{ summary.total_findings }} total)</h2>
+<table>
+  <tr><th>#</th><th>Severity</th><th>Type</th><th>Target</th><th>Detail</th></tr>
+  {% for f in findings %}
+  <tr>
+    <td>{{ loop.index }}</td>
+    <td class="{{ f.severity }}">{{ f.severity | upper }}</td>
+    <td>{{ f.finding_type }}</td>
+    <td>{{ f.target }}</td>
+    <td>{{ f.detail }}</td>
+  </tr>
+  {% endfor %}
+</table>
+</body>
+</html>
