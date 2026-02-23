@@ -67,6 +67,19 @@ class OperatorRole(str, enum.Enum):
     AUDITOR = "auditor"
 
 
+class AttackerClass(str, enum.Enum):
+    """Attacker profiles scoping attack graph traversal.
+
+    Each class defines entry-node rules, maximum hop depth,
+    allowed edge types, and node-count ceilings for graph construction.
+    """
+
+    AC1 = "ac1"  # Opportunistic External Attacker
+    AC2 = "ac2"  # Authenticated Insider
+    AC3 = "ac3"  # Compromised Service Account
+    AC4 = "ac4"  # Post-Exploitation Actor
+
+
 # ---------------------------------------------------------------------------
 # Core Models
 # ---------------------------------------------------------------------------
@@ -190,6 +203,7 @@ class EngagementContext(BaseModel):
     safe_mode: bool = True
     runtime_mode: RuntimeMode = RuntimeMode.DEV
     session_id: str | None = None
+    attacker_class: AttackerClass | None = None
 
     @field_validator("authorizer")
     @classmethod

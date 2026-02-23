@@ -260,11 +260,12 @@ class ChainModeError(PolicyDeniedException):
         self,
         plugin_name: str,
         *,
+        reason: str = "Attack path chaining requires chain_mode=True in OffensiveControls",
         engagement_id: str | None = None,
     ) -> None:
         super().__init__(
             plugin_name,
-            "Attack path chaining requires chain_mode=True in OffensiveControls",
+            reason,
             engagement_id=engagement_id,
         )
 
