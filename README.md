@@ -7,7 +7,7 @@
 [![CI](https://github.com/SERVER-246/RedCheck246/actions/workflows/ci.yml/badge.svg)](https://github.com/SERVER-246/RedCheck246/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/SERVER-246/RedCheck246/actions/workflows/codeql.yml/badge.svg)](https://github.com/SERVER-246/RedCheck246/actions/workflows/codeql.yml)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/tests-631%20passing-brightgreen.svg)](#)
+[![Tests](https://img.shields.io/badge/tests-693%20passing-brightgreen.svg)](#)
 [![License](https://img.shields.io/badge/license-Proprietary-red.svg)](LICENSE)
 [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
 
@@ -36,7 +36,7 @@ RoE Signature → Activation Code → Runtime Mode Check → Offensive Controls 
 - **Rate limiting** — Token bucket with configurable hard caps (never exceed `constants.py`)
 
 ### 🔌 Plugin Architecture
-- **19 plugins across 9 categories** — Recon, SAST, DAST, fuzzing, supply chain, network scanning, crypto analysis, OSINT, exploit verification
+- **21 plugins across 10 categories** — Recon, SAST, DAST, fuzzing, supply chain, network scanning, crypto analysis, OSINT, exploit verification, detection validation
 - **Auto-discovery** — Plugins register via `__init_subclass__` and entry points
 - **Lifecycle hooks** — `setup()`, `execute()`, `teardown()`, `health_check()`, `dry_run()`
 - **Capability classification** — `PASSIVE`, `ACTIVE`, `DESTRUCTIVE` with enforcement matrix
@@ -55,6 +55,12 @@ RoE Signature → Activation Code → Runtime Mode Check → Offensive Controls 
 - **Chain mode gating** — Requires `chain_mode` + `allow_exploit_validation` for graph construction
 - **JSON round-trip** — Full serialization/deserialization for persistence and reporting
 
+### 🔍 Detection Validation (Phase 4)
+- **MITRE ATT&CK coverage** — 21-technique catalog with deterministic SHA-256 traffic markers and gap analysis
+- **Alert latency testing** — SLA measurement with adaptive polling, probe count capping, and p95 statistics
+- **Coverage computation** — Per-technique detection mapping with severity-based findings (high if <50%)
+- **Offline mode** — Pre-detected technique lists and simulated latencies for CI/testing environments
+
 ### 🔐 Cryptographic Security
 - **Evidence encryption** — AES-256-GCM with PBKDF2-HMAC-SHA512 key derivation
 - **Document signing** — Ed25519 public-key + HMAC-SHA256 dual-mode
@@ -65,7 +71,7 @@ RoE Signature → Activation Code → Runtime Mode Check → Offensive Controls 
 - **Rich CLI** — Beautiful terminal output with tables, banners, JSON export via Typer
 - **Async-first** — All network plugins use `httpx.AsyncClient`
 - **Docker-ready** — Multi-stage build with non-root user (UID 1000), read-only filesystem
-- **Full test coverage** — 631+ tests across Python 3.10–3.13
+- **Full test coverage** — 693+ tests across Python 3.10–3.12
 
 ## Quick Start
 
@@ -126,6 +132,8 @@ redcheck status
 | `breach-lookup` | OSINT | PASSIVE | T1589.001 | Credential breach database queries with k-anonymity (HIBP-compatible) |
 | `cve-mapper` | Exploit | PASSIVE | T1595.002 | CPE↔CVE mapping, CVSS v3.1 scoring, EPSS probability, KEV cross-reference |
 | `exploit-verifier` | Exploit | DESTRUCTIVE | T1203, T1190 | Safe exploit validation with sandbox isolation and rollback verification |
+| `detection-coverage` | Detection | ACTIVE | T1562.001 | MITRE ATT&CK coverage validation with 21-technique catalog and gap analysis |
+| `alert-latency` | Detection | ACTIVE | T1562.006 | Alert pipeline latency measurement with SLA thresholds and p95 stats |
 
 ## Architecture
 
@@ -155,6 +163,7 @@ redcheck/
 │   ├── network/               # Network scanning & topology mapping
 │   ├── crypto/                # Hash analysis & password entropy scoring
 │   ├── osint/                 # CT logs, typosquat detection, breach lookup
+│   ├── detection/             # MITRE coverage validation, alert latency testing
     └── exploit/               # CVE mapping, exploit verification & attack graphs
 ├── data/
 │   ├── cve_cache.json         # Local CVE/CPE cache
@@ -198,7 +207,7 @@ RedCheck246 follows a phased development approach. See [next_phase_execution_pla
 | ✅ Phase 1 | Foundation engines — models, orchestrator, rate limiting, metrics | v0.2.5 |
 | ✅ Phase 2 | Scanners — network, web, credential, OSINT, exploit verification | v0.3.0-rc1 |
 | ✅ Phase 3 | Attack graph — path analysis, kill-chain, attacker-class scoping | v0.3.0-rc2 |
-| 📋 Phase 4 | Detection validation — MITRE coverage, alert latency | v0.3.0-rc3 |
+| ✅ Phase 4 | Detection validation — MITRE coverage, alert latency | v0.3.0-rc3 |
 | 📋 Phase 5 | Commercial readiness — multi-tenant, RBAC, reporting | v0.3.0 GA |
 
 ## Development
