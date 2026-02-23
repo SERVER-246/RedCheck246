@@ -88,6 +88,14 @@ ATTACK_GRAPH_AC3_MAX_NODES: int = 500
 ATTACK_GRAPH_AC4_MAX_DEPTH: int = 6
 ATTACK_GRAPH_AC4_MAX_NODES: int = 1000
 
+# ── Detection Validation ─────────────────────────────────────────
+DETECTION_COVERAGE_THRESHOLD_PERCENT: float = 50.0
+DETECTION_MARKER_DIGEST_LEN: int = 24
+DETECTION_MAX_PROBE_COUNT: int = 20
+DETECTION_LATENCY_POLL_TIMEOUT_CAP: int = 300
+DETECTION_DEFAULT_EXPECTED_LATENCY_MS: float = 1000.0
+DETECTION_SLA_PASS_THRESHOLD_PERCENT: float = 80.0
+
 # ── Metrics ──────────────────────────────────────────────────────
 METRICS_ROTATION_DAYS_DEFAULT: int = 1
 METRICS_TABLE_NAME: str = "metrics_ts"
