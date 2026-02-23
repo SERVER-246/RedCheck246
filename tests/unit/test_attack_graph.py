@@ -79,14 +79,42 @@ def _diamond_graph(
         ("D", "10.0.0.4", "target"),
     ]:
         g.add_asset(Asset(id=nid, host=host, role=role))
-    g.add_edge(ExploitEdge(source_id="A", target_id="B", probability=0.9,
-                           mitre_technique="T1190", edge_type="exploit_public"))
-    g.add_edge(ExploitEdge(source_id="A", target_id="C", probability=0.5,
-                           mitre_technique="T1078", edge_type="lateral"))
-    g.add_edge(ExploitEdge(source_id="B", target_id="D", probability=0.8,
-                           mitre_technique="T1068", edge_type="privesc"))
-    g.add_edge(ExploitEdge(source_id="C", target_id="D", probability=0.95,
-                           mitre_technique="T1021", edge_type="lateral"))
+    g.add_edge(
+        ExploitEdge(
+            source_id="A",
+            target_id="B",
+            probability=0.9,
+            mitre_technique="T1190",
+            edge_type="exploit_public",
+        )
+    )
+    g.add_edge(
+        ExploitEdge(
+            source_id="A",
+            target_id="C",
+            probability=0.5,
+            mitre_technique="T1078",
+            edge_type="lateral",
+        )
+    )
+    g.add_edge(
+        ExploitEdge(
+            source_id="B",
+            target_id="D",
+            probability=0.8,
+            mitre_technique="T1068",
+            edge_type="privesc",
+        )
+    )
+    g.add_edge(
+        ExploitEdge(
+            source_id="C",
+            target_id="D",
+            probability=0.95,
+            mitre_technique="T1021",
+            edge_type="lateral",
+        )
+    )
     return g
 
 
@@ -102,12 +130,33 @@ def _triangle_graph(
     g = AttackPathGraph(attacker_class=ac, **kwargs)
     for nid in ("A", "B", "C"):
         g.add_asset(Asset(id=nid, host=f"10.0.0.{ord(nid) - 64}", role="server"))
-    g.add_edge(ExploitEdge(source_id="A", target_id="B", probability=0.7,
-                           mitre_technique="T1190", edge_type="exploit_public"))
-    g.add_edge(ExploitEdge(source_id="B", target_id="C", probability=0.6,
-                           mitre_technique="T1068", edge_type="privesc"))
-    g.add_edge(ExploitEdge(source_id="A", target_id="C", probability=0.3,
-                           mitre_technique="T1078", edge_type="lateral"))
+    g.add_edge(
+        ExploitEdge(
+            source_id="A",
+            target_id="B",
+            probability=0.7,
+            mitre_technique="T1190",
+            edge_type="exploit_public",
+        )
+    )
+    g.add_edge(
+        ExploitEdge(
+            source_id="B",
+            target_id="C",
+            probability=0.6,
+            mitre_technique="T1068",
+            edge_type="privesc",
+        )
+    )
+    g.add_edge(
+        ExploitEdge(
+            source_id="A",
+            target_id="C",
+            probability=0.3,
+            mitre_technique="T1078",
+            edge_type="lateral",
+        )
+    )
     return g
 
 
@@ -142,29 +191,42 @@ class TestGraphConstruction:
         g = AttackPathGraph(attacker_class=AttackerClass.AC1)
         g.add_asset(Asset(id="a", host="10.0.0.1"))
         g.add_asset(Asset(id="b", host="10.0.0.2"))
-        ok = g.add_edge(ExploitEdge(
-            source_id="a", target_id="b", probability=0.5,
-            edge_type="exploit_public", mitre_technique="T1190",
-        ))
+        ok = g.add_edge(
+            ExploitEdge(
+                source_id="a",
+                target_id="b",
+                probability=0.5,
+                edge_type="exploit_public",
+                mitre_technique="T1190",
+            )
+        )
         assert ok
         assert g.edge_count == 1
 
     def test_add_edge_missing_source_rejected(self) -> None:
         g = AttackPathGraph(attacker_class=AttackerClass.AC1)
         g.add_asset(Asset(id="b", host="10.0.0.2"))
-        ok = g.add_edge(ExploitEdge(
-            source_id="a", target_id="b", probability=0.5,
-            edge_type="exploit_public",
-        ))
+        ok = g.add_edge(
+            ExploitEdge(
+                source_id="a",
+                target_id="b",
+                probability=0.5,
+                edge_type="exploit_public",
+            )
+        )
         assert not ok
 
     def test_add_edge_missing_target_rejected(self) -> None:
         g = AttackPathGraph(attacker_class=AttackerClass.AC1)
         g.add_asset(Asset(id="a", host="10.0.0.1"))
-        ok = g.add_edge(ExploitEdge(
-            source_id="a", target_id="b", probability=0.5,
-            edge_type="exploit_public",
-        ))
+        ok = g.add_edge(
+            ExploitEdge(
+                source_id="a",
+                target_id="b",
+                probability=0.5,
+                edge_type="exploit_public",
+            )
+        )
         assert not ok
 
     def test_probability_validation_zero(self) -> None:
@@ -204,13 +266,15 @@ class TestConstructionSpeed:
             for j in range(i + 1, 50):
                 if edge_count >= 100:
                     break
-                g.add_edge(ExploitEdge(
-                    source_id=f"h{i}",
-                    target_id=f"h{j}",
-                    probability=0.5,
-                    mitre_technique="T1021",
-                    edge_type="lateral",
-                ))
+                g.add_edge(
+                    ExploitEdge(
+                        source_id=f"h{i}",
+                        target_id=f"h{j}",
+                        probability=0.5,
+                        mitre_technique="T1021",
+                        edge_type="lateral",
+                    )
+                )
                 edge_count += 1
             if edge_count >= 100:
                 break
@@ -359,13 +423,15 @@ class TestCapEnforcement:
                     continue
                 if added >= constants.ATTACK_GRAPH_MAX_EDGES + 1:
                     break
-                g.add_edge(ExploitEdge(
-                    source_id=f"n{i}",
-                    target_id=f"n{j}",
-                    probability=0.5,
-                    edge_type="lateral",
-                    mitre_technique="T1021",
-                ))
+                g.add_edge(
+                    ExploitEdge(
+                        source_id=f"n{i}",
+                        target_id=f"n{j}",
+                        probability=0.5,
+                        edge_type="lateral",
+                        mitre_technique="T1021",
+                    )
+                )
                 added += 1
             if added >= constants.ATTACK_GRAPH_MAX_EDGES + 1:
                 break
@@ -457,11 +523,15 @@ class TestAttackerClassScoping:
         g = AttackPathGraph(attacker_class=AttackerClass.AC1)
         g.add_asset(Asset(id="a", host="10.0.0.1"))
         g.add_asset(Asset(id="b", host="10.0.0.2"))
-        ok = g.add_edge(ExploitEdge(
-            source_id="a", target_id="b", probability=0.5,
-            edge_type="lateral",
-            mitre_technique="T1021",
-        ))
+        ok = g.add_edge(
+            ExploitEdge(
+                source_id="a",
+                target_id="b",
+                probability=0.5,
+                edge_type="lateral",
+                mitre_technique="T1021",
+            )
+        )
         assert not ok
         assert g.edge_count == 0
 
@@ -469,33 +539,45 @@ class TestAttackerClassScoping:
         g = AttackPathGraph(attacker_class=AttackerClass.AC1)
         g.add_asset(Asset(id="a", host="10.0.0.1"))
         g.add_asset(Asset(id="b", host="10.0.0.2"))
-        ok = g.add_edge(ExploitEdge(
-            source_id="a", target_id="b", probability=0.5,
-            edge_type="exploit_public",
-            mitre_technique="T1190",
-        ))
+        ok = g.add_edge(
+            ExploitEdge(
+                source_id="a",
+                target_id="b",
+                probability=0.5,
+                edge_type="exploit_public",
+                mitre_technique="T1190",
+            )
+        )
         assert ok
 
     def test_ac2_accepts_privesc(self) -> None:
         g = AttackPathGraph(attacker_class=AttackerClass.AC2)
         g.add_asset(Asset(id="a", host="10.0.0.1"))
         g.add_asset(Asset(id="b", host="10.0.0.2"))
-        ok = g.add_edge(ExploitEdge(
-            source_id="a", target_id="b", probability=0.5,
-            edge_type="privesc",
-            mitre_technique="T1068",
-        ))
+        ok = g.add_edge(
+            ExploitEdge(
+                source_id="a",
+                target_id="b",
+                probability=0.5,
+                edge_type="privesc",
+                mitre_technique="T1068",
+            )
+        )
         assert ok
 
     def test_ac3_accepts_api_chain(self) -> None:
         g = AttackPathGraph(attacker_class=AttackerClass.AC3)
         g.add_asset(Asset(id="a", host="10.0.0.1"))
         g.add_asset(Asset(id="b", host="10.0.0.2"))
-        ok = g.add_edge(ExploitEdge(
-            source_id="a", target_id="b", probability=0.5,
-            edge_type="api_chain",
-            mitre_technique="T1106",
-        ))
+        ok = g.add_edge(
+            ExploitEdge(
+                source_id="a",
+                target_id="b",
+                probability=0.5,
+                edge_type="api_chain",
+                mitre_technique="T1106",
+            )
+        )
         assert ok
 
     def test_ac4_accepts_all_edge_types(self) -> None:
@@ -506,11 +588,15 @@ class TestAttackerClassScoping:
         for i, etype in enumerate(edge_types):
             target_id = f"t{i}"
             g.add_asset(Asset(id=target_id, host=f"10.0.0.{i + 2}"))
-            g.add_edge(ExploitEdge(
-                source_id="a", target_id=target_id, probability=0.5,
-                edge_type=etype,
-                mitre_technique="T1021",
-            ))
+            g.add_edge(
+                ExploitEdge(
+                    source_id="a",
+                    target_id=target_id,
+                    probability=0.5,
+                    edge_type=etype,
+                    mitre_technique="T1021",
+                )
+            )
         assert g.edge_count == 4
 
     def test_ac1_depth_limit_filters_deep_paths(self) -> None:
@@ -518,14 +604,24 @@ class TestAttackerClassScoping:
         g = AttackPathGraph(attacker_class=AttackerClass.AC1)
         for nid in ("A", "B", "C"):
             g.add_asset(Asset(id=nid, host=f"10.0.0.{ord(nid) - 64}"))
-        g.add_edge(ExploitEdge(
-            source_id="A", target_id="B", probability=0.8,
-            edge_type="exploit_public", mitre_technique="T1190",
-        ))
-        g.add_edge(ExploitEdge(
-            source_id="B", target_id="C", probability=0.8,
-            edge_type="exploit_public", mitre_technique="T1190",
-        ))
+        g.add_edge(
+            ExploitEdge(
+                source_id="A",
+                target_id="B",
+                probability=0.8,
+                edge_type="exploit_public",
+                mitre_technique="T1190",
+            )
+        )
+        g.add_edge(
+            ExploitEdge(
+                source_id="B",
+                target_id="C",
+                probability=0.8,
+                edge_type="exploit_public",
+                mitre_technique="T1190",
+            )
+        )
         # Path A→B→C has depth 2, exceeds AC1 max_depth=1
         paths = g.rank_paths("A", "C")
         assert len(paths) == 0
@@ -534,10 +630,15 @@ class TestAttackerClassScoping:
         g = AttackPathGraph(attacker_class=AttackerClass.AC1)
         g.add_asset(Asset(id="A", host="10.0.0.1"))
         g.add_asset(Asset(id="B", host="10.0.0.2"))
-        g.add_edge(ExploitEdge(
-            source_id="A", target_id="B", probability=0.9,
-            edge_type="exploit_public", mitre_technique="T1190",
-        ))
+        g.add_edge(
+            ExploitEdge(
+                source_id="A",
+                target_id="B",
+                probability=0.9,
+                edge_type="exploit_public",
+                mitre_technique="T1190",
+            )
+        )
         paths = g.rank_paths("A", "B")
         assert len(paths) == 1
         assert paths[0].depth == 1
@@ -652,10 +753,15 @@ class TestJSONRoundTrip:
         g = AttackPathGraph(attacker_class=AttackerClass.AC2)
         g.add_asset(Asset(id="a", host="10.0.0.1"))
         g.add_asset(Asset(id="b", host="10.0.0.2"))
-        g.add_edge(ExploitEdge(
-            source_id="a", target_id="b", probability=0.5,
-            edge_type="privesc", mitre_technique="T1068",
-        ))
+        g.add_edge(
+            ExploitEdge(
+                source_id="a",
+                target_id="b",
+                probability=0.5,
+                edge_type="privesc",
+                mitre_technique="T1068",
+            )
+        )
         d = g.to_dict()
         g2 = AttackPathGraph.from_dict(d)
         assert g2.attacker_class == AttackerClass.AC2

@@ -7,7 +7,7 @@
 [![CI](https://github.com/SERVER-246/RedCheck246/actions/workflows/ci.yml/badge.svg)](https://github.com/SERVER-246/RedCheck246/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/SERVER-246/RedCheck246/actions/workflows/codeql.yml/badge.svg)](https://github.com/SERVER-246/RedCheck246/actions/workflows/codeql.yml)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/tests-578%20passing-brightgreen.svg)](#)
+[![Tests](https://img.shields.io/badge/tests-631%20passing-brightgreen.svg)](#)
 [![License](https://img.shields.io/badge/license-Proprietary-red.svg)](LICENSE)
 [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
 
@@ -48,6 +48,13 @@ RoE Signature → Activation Code → Runtime Mode Check → Offensive Controls 
 - **OSINT intelligence** — Certificate Transparency monitoring, typosquat detection, breach lookup (k-anonymity)
 - **Exploit verification** — CVE↔CPE mapping, EPSS probability, KEV cross-reference, sandboxed exploit validation
 
+### 🗓️ Attack Graph Engine (Phase 3)
+- **Attack path analysis** — Dijkstra shortest-path and Yen’s k-shortest-paths over probabilistic exploit graphs
+- **Attacker class scoping** — 4-tier threat model (AC1–AC4) with per-class depth limits, node caps, and edge-type filtering
+- **MITRE ATT&CK annotations** — Every exploit edge carries MITRE technique IDs for kill-chain mapping
+- **Chain mode gating** — Requires `chain_mode` + `allow_exploit_validation` for graph construction
+- **JSON round-trip** — Full serialization/deserialization for persistence and reporting
+
 ### 🔐 Cryptographic Security
 - **Evidence encryption** — AES-256-GCM with PBKDF2-HMAC-SHA512 key derivation
 - **Document signing** — Ed25519 public-key + HMAC-SHA256 dual-mode
@@ -58,7 +65,7 @@ RoE Signature → Activation Code → Runtime Mode Check → Offensive Controls 
 - **Rich CLI** — Beautiful terminal output with tables, banners, JSON export via Typer
 - **Async-first** — All network plugins use `httpx.AsyncClient`
 - **Docker-ready** — Multi-stage build with non-root user (UID 1000), read-only filesystem
-- **Full test coverage** — 578+ tests across Python 3.10–3.13
+- **Full test coverage** — 631+ tests across Python 3.10–3.13
 
 ## Quick Start
 
@@ -127,7 +134,7 @@ redcheck/
 ├── cli.py                     # Typer CLI (7 commands)
 ├── config.py                  # Pydantic v2 BaseSettings (REDCHECK_ env prefix)
 ├── exceptions.py              # 11 custom exception classes
-├── models.py                  # 6 enums + 8 Pydantic v2 models
+├── models.py                  # 7 enums + 8 Pydantic v2 models
 ├── output.py                  # Rich terminal formatting
 ├── logging.py                 # structlog JSON configuration
 ├── core/
@@ -148,7 +155,7 @@ redcheck/
 │   ├── network/               # Network scanning & topology mapping
 │   ├── crypto/                # Hash analysis & password entropy scoring
 │   ├── osint/                 # CT logs, typosquat detection, breach lookup
-│   └── exploit/               # CVE mapping & exploit verification
+    └── exploit/               # CVE mapping, exploit verification & attack graphs
 ├── data/
 │   ├── cve_cache.json         # Local CVE/CPE cache
 │   └── payloads/              # Safe exploit payload library
@@ -190,7 +197,7 @@ RedCheck246 follows a phased development approach. See [next_phase_execution_pla
 | ✅ 1–16 | Core framework, 5 plugins, crypto, CI/CD | v0.2.0 |
 | ✅ Phase 1 | Foundation engines — models, orchestrator, rate limiting, metrics | v0.2.5 |
 | ✅ Phase 2 | Scanners — network, web, credential, OSINT, exploit verification | v0.3.0-rc1 |
-| 📋 Phase 3 | Attack graph — path analysis, kill-chain, chaining | v0.3.0-rc2 |
+| ✅ Phase 3 | Attack graph — path analysis, kill-chain, attacker-class scoping | v0.3.0-rc2 |
 | 📋 Phase 4 | Detection validation — MITRE coverage, alert latency | v0.3.0-rc3 |
 | 📋 Phase 5 | Commercial readiness — multi-tenant, RBAC, reporting | v0.3.0 GA |
 
