@@ -14,7 +14,7 @@ import httpx
 from redcheck.models import PluginCapability
 from redcheck.plugins.osint.breach_lookup import (
     BreachLookup,
-    _sha1_hash,
+    _compute_hibp_token,
     prepare_k_anonymity,
 )
 from redcheck.plugins.osint.ct_watch import CTLogMonitor, _parse_ct_entry
@@ -167,9 +167,8 @@ class TestCTLogParsing:
             "serial_number": "ABCDEF",
         }
         result = _parse_ct_entry(entry, "example.com")
-        subdomains = result["subdomains"]
-        assert "sub.example.com" in subdomains
-        assert "*.example.com" in subdomains
+        subdomains = set(result["subdomains"])
+        assert subdomains == {"sub.example.com", "*.example.com"}
         assert result["issuer"] == "Let's Encrypt"
 
 
@@ -216,8 +215,8 @@ class TestCTLogPlugin:
 
 
 class TestKAnonymity:
-    def test_sha1_hash(self):
-        h = _sha1_hash("password")
+    def test_hibp_token_format(self):
+        h = _compute_hibp_token("password")
         assert len(h) == 40
         assert h == h.upper()
 
@@ -225,7 +224,7 @@ class TestKAnonymity:
         prefix, suffix = prepare_k_anonymity("password")
         assert len(prefix) == 5
         assert len(suffix) == 35
-        assert prefix + suffix == _sha1_hash("password")
+        assert prefix + suffix == _compute_hibp_token("password")
 
     def test_deterministic(self):
         p1, s1 = prepare_k_anonymity("test")

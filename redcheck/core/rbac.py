@@ -56,30 +56,40 @@ class RBACAction(str, Enum):
 # There is NO implicit role hierarchy — every grant is explicit.
 
 _PERMISSION_MATRIX: dict[OperatorRole, frozenset[RBACAction]] = {
-    OperatorRole.VIEWER: frozenset({
-        RBACAction.READ_REPORTS,
-    }),
-    OperatorRole.OPERATOR: frozenset({
-        RBACAction.READ_REPORTS,
-        RBACAction.RUN_PASSIVE,
-    }),
-    OperatorRole.SENIOR_OPERATOR: frozenset({
-        RBACAction.READ_REPORTS,
-        RBACAction.RUN_PASSIVE,
-        RBACAction.RUN_ACTIVE,
-    }),
-    OperatorRole.ADMIN: frozenset({
-        RBACAction.READ_REPORTS,
-        RBACAction.RUN_PASSIVE,
-        RBACAction.RUN_ACTIVE,
-        RBACAction.RUN_DESTRUCTIVE,
-        RBACAction.MANAGE_TENANTS,
-        RBACAction.EXPORT_EVIDENCE,
-    }),
-    OperatorRole.AUDITOR: frozenset({
-        RBACAction.READ_REPORTS,
-        RBACAction.EXPORT_EVIDENCE,
-    }),
+    OperatorRole.VIEWER: frozenset(
+        {
+            RBACAction.READ_REPORTS,
+        }
+    ),
+    OperatorRole.OPERATOR: frozenset(
+        {
+            RBACAction.READ_REPORTS,
+            RBACAction.RUN_PASSIVE,
+        }
+    ),
+    OperatorRole.SENIOR_OPERATOR: frozenset(
+        {
+            RBACAction.READ_REPORTS,
+            RBACAction.RUN_PASSIVE,
+            RBACAction.RUN_ACTIVE,
+        }
+    ),
+    OperatorRole.ADMIN: frozenset(
+        {
+            RBACAction.READ_REPORTS,
+            RBACAction.RUN_PASSIVE,
+            RBACAction.RUN_ACTIVE,
+            RBACAction.RUN_DESTRUCTIVE,
+            RBACAction.MANAGE_TENANTS,
+            RBACAction.EXPORT_EVIDENCE,
+        }
+    ),
+    OperatorRole.AUDITOR: frozenset(
+        {
+            RBACAction.READ_REPORTS,
+            RBACAction.EXPORT_EVIDENCE,
+        }
+    ),
 }
 
 
@@ -133,11 +143,7 @@ class RBACEnforcer:
 
     def get_allowed_roles_for_action(self, action: RBACAction) -> list[OperatorRole]:
         """Return all roles that are allowed to perform *action*."""
-        return [
-            role
-            for role, actions in _PERMISSION_MATRIX.items()
-            if action in actions
-        ]
+        return [role for role, actions in _PERMISSION_MATRIX.items() if action in actions]
 
     # ── Enforcement ───────────────────────────────────────────────
 
@@ -167,10 +173,7 @@ class RBACEnforcer:
             )
             raise PolicyDeniedException(
                 plugin_name="rbac",
-                reason=(
-                    f"Role '{role.value}' is not authorized for action "
-                    f"'{action.value}'"
-                ),
+                reason=(f"Role '{role.value}' is not authorized for action '{action.value}'"),
                 engagement_id=engagement_id,
             )
 
@@ -187,10 +190,7 @@ class RBACEnforcer:
             )
             raise PolicyDeniedException(
                 plugin_name="rbac",
-                reason=(
-                    "DESTRUCTIVE actions require explicit confirmation "
-                    "(pass confirmed=True)"
-                ),
+                reason=("DESTRUCTIVE actions require explicit confirmation (pass confirmed=True)"),
                 engagement_id=engagement_id,
             )
 

@@ -248,9 +248,7 @@ class TestNoImplicitInheritance:
     def test_senior_operator_no_destructive(self) -> None:
         """SENIOR_OPERATOR has ACTIVE but must NOT get DESTRUCTIVE."""
         enforcer = RBACEnforcer()
-        result = enforcer.is_allowed(
-            OperatorRole.SENIOR_OPERATOR, RBACAction.RUN_DESTRUCTIVE
-        )
+        result = enforcer.is_allowed(OperatorRole.SENIOR_OPERATOR, RBACAction.RUN_DESTRUCTIVE)
         assert result is False
 
     def test_auditor_no_run_passive(self) -> None:

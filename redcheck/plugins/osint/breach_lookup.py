@@ -31,16 +31,21 @@ log = structlog.get_logger(__name__)
 _HIBP_RANGE_URL = "https://api.pwnedpasswords.com/range/{prefix}"
 
 
-def _sha1_hash(value: str) -> str:
-    """SHA-1 hash (uppercase hex) for HIBP k-anonymity.
+def _compute_hibp_token(raw_input: str) -> str:
+    """Compute HIBP k-anonymity lookup token (uppercase hex SHA-1).
 
-    SHA-1 is **required** by the Have I Been Pwned Passwords API
-    k-anonymity protocol — this is NOT used for cryptographic security.
+    The Have I Been Pwned Passwords API **requires** SHA-1 as its
+    lookup key format.  This is a protocol-mandated identifier —
+    NOT a security mechanism.  The actual password never leaves
+    the caller; only the first 5 hex chars are transmitted.
     """
-    return hashlib.sha1(  # noqa: S324  # nosec B324
-        value.encode("utf-8"),
-        usedforsecurity=False,
-    ).hexdigest().upper()
+    octets = raw_input.encode("utf-8")
+    digest = hashlib.new(  # noqa: S324
+        "sha1",
+        octets,
+        usedforsecurity=False,  # nosec B324
+    )
+    return digest.hexdigest().upper()
 
 
 async def check_password_breach(
@@ -79,7 +84,7 @@ def prepare_k_anonymity(password: str) -> tuple[str, str]:
     The prefix is sent to HIBP; the suffix is checked locally.
     The actual password never leaves the system.
     """
-    full_hash = _sha1_hash(password)
+    full_hash = _compute_hibp_token(password)
     return full_hash[:5], full_hash[5:]
 
 

@@ -29,11 +29,13 @@ def _get_installed_packages() -> list[dict[str, str]]:
         if name in seen:
             continue
         seen.add(name)
-        packages.append({
-            "name": name,
-            "version": dist.metadata["Version"],
-            "license": dist.metadata.get("License") or "NOASSERTION",
-        })
+        packages.append(
+            {
+                "name": name,
+                "version": dist.metadata["Version"],
+                "license": dist.metadata.get("License") or "NOASSERTION",
+            }
+        )
 
     return sorted(packages, key=lambda p: p["name"].lower())
 
@@ -78,9 +80,7 @@ class SBOMGenerator:
             packages.extend(extra_packages)
 
         if len(packages) < min_packages:
-            raise ValueError(
-                f"Expected at least {min_packages} packages, found {len(packages)}"
-            )
+            raise ValueError(f"Expected at least {min_packages} packages, found {len(packages)}")
 
         now = datetime.now(timezone.utc).isoformat()
 
@@ -88,16 +88,18 @@ class SBOMGenerator:
         spdx_packages: list[dict[str, Any]] = []
         for pkg in packages:
             spdx_id = f"SPDXRef-Package-{pkg['name']}"
-            spdx_packages.append({
-                "SPDXID": spdx_id,
-                "name": pkg["name"],
-                "versionInfo": pkg["version"],
-                "downloadLocation": "NOASSERTION",
-                "licenseConcluded": pkg.get("license", "NOASSERTION"),
-                "licenseDeclared": pkg.get("license", "NOASSERTION"),
-                "copyrightText": "NOASSERTION",
-                "filesAnalyzed": False,
-            })
+            spdx_packages.append(
+                {
+                    "SPDXID": spdx_id,
+                    "name": pkg["name"],
+                    "versionInfo": pkg["version"],
+                    "downloadLocation": "NOASSERTION",
+                    "licenseConcluded": pkg.get("license", "NOASSERTION"),
+                    "licenseDeclared": pkg.get("license", "NOASSERTION"),
+                    "copyrightText": "NOASSERTION",
+                    "filesAnalyzed": False,
+                }
+            )
 
         # Build SPDX document
         doc_namespace = f"{self._namespace_base}/{self._document_name}-{now}"

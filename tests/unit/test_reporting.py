@@ -30,6 +30,7 @@ from redcheck.models import (
 
 # ── Fixtures ──────────────────────────────────────────────────────
 
+
 def _make_scan_report(
     *,
     engagement_id: str = "test-eng-001",

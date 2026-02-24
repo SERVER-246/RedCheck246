@@ -208,12 +208,8 @@ class ReportSigner:
             Tuple of (private_key_bytes, public_key_bytes) in raw format.
         """
         private_key = Ed25519PrivateKey.generate()
-        private_bytes = private_key.private_bytes(
-            Encoding.Raw, PrivateFormat.Raw, NoEncryption()
-        )
-        public_bytes = private_key.public_key().public_bytes(
-            Encoding.Raw, PublicFormat.Raw
-        )
+        private_bytes = private_key.private_bytes(Encoding.Raw, PrivateFormat.Raw, NoEncryption())
+        public_bytes = private_key.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)
         return private_bytes, public_bytes
 
     @staticmethod
@@ -375,8 +371,7 @@ class TemplateRenderer:
     ) -> None:
         if not _HAS_JINJA2:
             raise ImportError(
-                "jinja2 package required for template rendering. "
-                "Install with: pip install jinja2"
+                "jinja2 package required for template rendering. Install with: pip install jinja2"
             )
 
         self._template_dir = template_dir
