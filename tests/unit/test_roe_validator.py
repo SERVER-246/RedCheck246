@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+import pytest
 import yaml
 
 from redcheck.security.roe_validator import _parse_datetime, validate_roe_file
@@ -166,7 +167,7 @@ class TestParseDatetime:
         assert _parse_datetime(dt) == dt
 
     def test_datetime_object_naive(self) -> None:
-        dt = datetime(2025, 1, 1)
+        dt = datetime(2025, 1, 1)  # noqa: DTZ001
         result = _parse_datetime(dt)
         assert result.tzinfo == timezone.utc
 
@@ -188,15 +189,9 @@ class TestParseDatetime:
         assert result.tzinfo == timezone.utc
 
     def test_invalid_string(self) -> None:
-        try:
+        with pytest.raises(ValueError, match="not-a-date"):
             _parse_datetime("not-a-date")
-            assert False, "Should have raised"
-        except ValueError:
-            pass
 
     def test_invalid_type(self) -> None:
-        try:
+        with pytest.raises(TypeError):
             _parse_datetime(12345)
-            assert False, "Should have raised"
-        except TypeError:
-            pass

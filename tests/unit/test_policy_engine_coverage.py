@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pytest
 import yaml
 
 from redcheck.core.policy_engine import PolicyEngine
@@ -151,32 +152,26 @@ class TestPolicyEngineAuthorize:
 
     def test_no_engagement(self) -> None:
         pe = PolicyEngine()
-        try:
+        with pytest.raises(PolicyDeniedException):
             pe.authorize("plugin", engagement=None)
-            assert False
-        except PolicyDeniedException:
-            pass
 
     def test_roe_not_validated(self) -> None:
         pe = PolicyEngine()
-        try:
+        with pytest.raises(PolicyDeniedException):
             pe.authorize("plugin", engagement={"roe_validated": False})
-            assert False
-        except PolicyDeniedException:
-            pass
 
     def test_activation_not_verified(self) -> None:
         pe = PolicyEngine()
-        try:
-            pe.authorize("plugin", engagement={"roe_validated": True, "activation_verified": False})
-            assert False
-        except PolicyDeniedException:
-            pass
+        with pytest.raises(PolicyDeniedException):
+            pe.authorize(
+                "plugin",
+                engagement={"roe_validated": True, "activation_verified": False},
+            )
 
     def test_plugin_not_in_allowed_tests(self) -> None:
         now = datetime.now(timezone.utc)
         pe = PolicyEngine()
-        try:
+        with pytest.raises(PolicyDeniedException):
             pe.authorize(
                 "exploit",
                 engagement={
@@ -187,9 +182,6 @@ class TestPolicyEngineAuthorize:
                     "end_time_utc": (now + timedelta(hours=1)).isoformat(),
                 },
             )
-            assert False
-        except PolicyDeniedException:
-            pass
 
     def test_authorized_success(self) -> None:
         now = datetime.now(timezone.utc)
@@ -208,7 +200,7 @@ class TestPolicyEngineAuthorize:
     def test_outside_time_window(self) -> None:
         now = datetime.now(timezone.utc)
         pe = PolicyEngine()
-        try:
+        with pytest.raises(PolicyDeniedException):
             pe.authorize(
                 "recon",
                 engagement={
@@ -219,13 +211,10 @@ class TestPolicyEngineAuthorize:
                     "end_time_utc": (now + timedelta(hours=2)).isoformat(),
                 },
             )
-            assert False
-        except PolicyDeniedException:
-            pass
 
     def test_invalid_time_in_engagement(self) -> None:
         pe = PolicyEngine()
-        try:
+        with pytest.raises(PolicyDeniedException):
             pe.authorize(
                 "recon",
                 engagement={
@@ -236,6 +225,3 @@ class TestPolicyEngineAuthorize:
                     "end_time_utc": "bad",
                 },
             )
-            assert False
-        except PolicyDeniedException:
-            pass

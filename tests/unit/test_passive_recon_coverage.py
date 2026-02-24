@@ -98,16 +98,18 @@ class TestWhoisLookup:
             with patch(
                 "redcheck.plugins.recon.passive_recon.python_whois",
                 create=True,
-            ) as mock_whois_mod:
-                # Patch at import level
-                import redcheck.plugins.recon.passive_recon as pr_module
-                original = None
+            ):
                 try:
                     # Simulate that whois is importable
-                    with patch.dict("sys.modules", {"whois": MagicMock(whois=MagicMock(return_value=mock_data))}):
-                        findings = await whois_lookup("example.com")
+                    whois_mock = MagicMock(
+                        whois=MagicMock(return_value=mock_data)
+                    )
+                    with patch.dict(
+                        "sys.modules", {"whois": whois_mock}
+                    ):
+                        await whois_lookup("example.com")
                 except Exception:
-                    findings = await whois_lookup("example.com")
+                    await whois_lookup("example.com")
             # whois may or may not be installed; just verify no crash
 
         asyncio.run(_run())
@@ -115,7 +117,7 @@ class TestWhoisLookup:
     def test_whois_import_error(self) -> None:
         async def _run() -> None:
             with patch.dict("sys.modules", {"whois": None}):
-                findings = await whois_lookup("example.com")
+                await whois_lookup("example.com")
             # Should get an import-error finding or empty
             # The ImportError path should be hit
 
@@ -150,7 +152,11 @@ class TestCertTransparency:
                 mock_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
                 mock_cls.return_value.__aexit__ = AsyncMock(return_value=False)
                 findings = await cert_transparency("fail.com")
-            assert any("error" in str(f.get("detail", "")).lower() or f.get("data", {}).get("error") for f in findings)
+            assert any(
+                "error" in str(f.get("detail", "")).lower()
+                or f.get("data", {}).get("error")
+                for f in findings
+            )
 
         asyncio.run(_run())
 
@@ -228,7 +234,14 @@ class TestPassiveReconPluginExec:
             plugin,
             "_scan_target",
             new_callable=AsyncMock,
-            return_value=[{"type": "dns_record", "target": "t.com", "detail": "A: 1.2.3.4", "data": {}}],
+            return_value=[
+                {
+                    "type": "dns_record",
+                    "target": "t.com",
+                    "detail": "A: 1.2.3.4",
+                    "data": {},
+                }
+            ],
         ):
             result = plugin.execute({"authorized_targets": ["t.com"]})
         assert result.success

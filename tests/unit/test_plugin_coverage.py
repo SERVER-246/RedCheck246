@@ -4,7 +4,6 @@ passive recon, safe_poc, supply_chain, coverage_validator, and latency_tester.""
 from __future__ import annotations
 
 import asyncio
-import json
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 

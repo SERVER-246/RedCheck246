@@ -92,9 +92,9 @@ class TestScanTimeoutError:
 
 class TestScopeViolationError:
     def test_constructor(self) -> None:
-        err = ScopeViolationError("plug", "evil.com")
-        assert err.target == "evil.com"
-        assert "evil.com" in str(err)
+        err = ScopeViolationError("plug", "OUTOFSCOPE-TARGET")
+        assert err.target == "OUTOFSCOPE-TARGET"
+        assert "OUTOFSCOPE-TARGET" in str(err)
 
 
 class TestOffensiveControlError:

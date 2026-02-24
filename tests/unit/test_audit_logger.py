@@ -56,7 +56,7 @@ class TestAuditLogger:
         logger.log("ENCRYPTED_ACTION")
         # Log file should contain base64 encrypted content
         content = (tmp_path / "audit.log").read_text(encoding="utf-8")
-        lines = [l for l in content.splitlines() if l.strip()]
+        lines = [entry for entry in content.splitlines() if entry.strip()]
         assert len(lines) == 1
         # Should not be plain JSON
         try:
@@ -68,7 +68,7 @@ class TestAuditLogger:
 
     def test_read_session(self, tmp_path: Path) -> None:
         logger = AuditLogger(log_path=tmp_path / "audit.log")
-        sid = logger.start_session("code", "sid-1")
+        logger.start_session("code", "sid-1")
         logger.log("ACTION_1", details="detail1")
         logger.log("ACTION_2", details="detail2")
 
@@ -94,7 +94,7 @@ class TestAuditLogger:
 
     def test_verify_chain_encrypted(self, tmp_path: Path) -> None:
         logger = AuditLogger(log_path=tmp_path / "audit.log")
-        sid = logger.start_session("code", "sid")
+        logger.start_session("code", "sid")
         logger.log("A1")
         logger.log("A2")
         valid, count, msg = logger.verify_chain("code", "sid")

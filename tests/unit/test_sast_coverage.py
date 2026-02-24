@@ -74,7 +74,7 @@ class TestScanDependencyFiles:
         req = tmp_path / "requirements.txt"
         req.write_text("content", encoding="utf-8")
         with patch.object(Path, "read_text", side_effect=PermissionError("denied")):
-            findings = _scan_dependency_files([req.parent])
+            _scan_dependency_files([req.parent])
         # Should not crash, just skip
 
     def test_direct_file_path(self, tmp_path: Path) -> None:

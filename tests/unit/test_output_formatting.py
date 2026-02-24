@@ -2,11 +2,8 @@
 
 from __future__ import annotations
 
-from io import StringIO
 from typing import Any
-from unittest.mock import patch
 
-from rich.console import Console
 from rich.table import Table
 
 from redcheck.output import (

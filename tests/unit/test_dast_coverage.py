@@ -14,8 +14,6 @@ from redcheck.plugins.dast.dast_scanner import (
     check_http_methods,
     check_redirects,
     check_security_headers,
-    check_ssl_tls,
-    discover_paths,
 )
 
 

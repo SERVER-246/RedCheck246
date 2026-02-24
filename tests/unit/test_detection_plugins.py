@@ -17,7 +17,6 @@ from redcheck.plugins.detection.latency_tester import (
     generate_latency_marker,
 )
 
-
 # ── Coverage Validator ────────────────────────────────────────────────
 
 class TestTechniqueIds:

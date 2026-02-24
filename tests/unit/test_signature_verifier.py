@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 import yaml
 
 from redcheck.exceptions import CryptoError
@@ -57,7 +58,7 @@ class TestHMACSignVerifyRoE:
         data = {"engagement_id": "E1", "authorizer": "admin"}
         roe_file = _write_roe(tmp_path, data)
         sv = SignatureVerifier(secret="s3cret")
-        sig = sv.sign_roe(roe_file)
+        sv.sign_roe(roe_file)
         data["signature"] = "0" * 64  # wrong sig
         _write_roe(tmp_path, data)
         valid, msg = sv.verify_roe(roe_file)
@@ -88,11 +89,8 @@ class TestHMACSignVerifyRoE:
     def test_sign_not_configured(self, tmp_path: Path) -> None:
         roe_file = _write_roe(tmp_path, {"x": 1})
         sv = SignatureVerifier()
-        try:
+        with pytest.raises(CryptoError):
             sv.sign_roe(roe_file)
-            assert False, "Should raise"
-        except CryptoError:
-            pass
 
 
 class TestHMACEvidence:
@@ -108,11 +106,8 @@ class TestHMACEvidence:
 
     def test_sign_evidence_not_configured(self) -> None:
         sv = SignatureVerifier()
-        try:
+        with pytest.raises(CryptoError):
             sv.sign_evidence(b"data")
-            assert False, "Should raise"
-        except CryptoError:
-            pass
 
     def test_verify_evidence_not_configured(self) -> None:
         sv = SignatureVerifier()
@@ -188,19 +183,13 @@ class TestEd25519SignVerify:
         sv = SignatureVerifier()
         sv._public_key_pem = None
         sv._private_key_pem = None
-        try:
+        with pytest.raises(CryptoError):
             sv._ed25519_sign(b"data")
-            assert False
-        except CryptoError:
-            pass
 
     def test_ed25519_verify_no_keys_raises(self) -> None:
         sv = SignatureVerifier()
-        try:
+        with pytest.raises(CryptoError):
             sv._ed25519_verify(b"data", b"sig")
-            assert False
-        except CryptoError:
-            pass
 
     def test_verify_evidence_invalid_hex(self) -> None:
         priv, pub = self._generate_ed25519_keys()
