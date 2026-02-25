@@ -7,7 +7,9 @@
 [![CI](https://github.com/SERVER-246/RedCheck246/actions/workflows/ci.yml/badge.svg)](https://github.com/SERVER-246/RedCheck246/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/SERVER-246/RedCheck246/actions/workflows/codeql.yml/badge.svg)](https://github.com/SERVER-246/RedCheck246/actions/workflows/codeql.yml)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/tests-829%20passing-brightgreen.svg)](#)
+[![Tests](https://img.shields.io/badge/tests-1341%20passing-brightgreen.svg)](#)
+[![Coverage](https://img.shields.io/badge/coverage-93%25-brightgreen.svg)](#)
+[![Mutation](https://img.shields.io/badge/mutation%20score-95%25-brightgreen.svg)](#)
 [![License](https://img.shields.io/badge/license-Proprietary-red.svg)](LICENSE)
 [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
 
@@ -78,7 +80,7 @@ RoE Signature → Activation Code → Runtime Mode Check → Offensive Controls 
 - **Rich CLI** — Beautiful terminal output with tables, banners, JSON export via Typer
 - **Async-first** — All network plugins use `httpx.AsyncClient`
 - **Docker-ready** — Multi-stage build with non-root user (UID 1000), read-only filesystem
-- **Full test coverage** — 829+ tests across Python 3.10–3.12
+- **Full test coverage** — 1 341 tests, 93% line coverage, mutation testing (≥95%) across Python 3.10–3.12
 
 ## Quick Start
 
@@ -239,6 +241,10 @@ pytest tests/ -q --tb=short
 ruff check redcheck/ tests/
 ruff format redcheck/ tests/
 
+# Mutation testing (requires mutmut 2.x)
+mutmut run --paths-to-mutate=redcheck/core/policy_engine.py --tests-dir=tests/ --runner="pytest -x -q"
+mutmut results
+
 # Type checking
 mypy --strict redcheck/
 
@@ -260,9 +266,11 @@ docker build --target dev -t redcheck246:dev .
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the full developer guide. All contributions must pass:
 
 - `ruff check` — zero warnings
+- `ruff format --check` — zero formatting diffs
 - `mypy --strict` — zero errors
 - `bandit` — zero CRITICAL/HIGH findings
-- `pytest` — all tests passing
+- `pytest` — all 1 341 tests passing, ≥93% line coverage
+- `mutmut` — ≥95% mutation score on core modules
 - CodeQL — zero open findings
 
 ## License
