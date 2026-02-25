@@ -101,12 +101,8 @@ class TestWhoisLookup:
             ):
                 try:
                     # Simulate that whois is importable
-                    whois_mock = MagicMock(
-                        whois=MagicMock(return_value=mock_data)
-                    )
-                    with patch.dict(
-                        "sys.modules", {"whois": whois_mock}
-                    ):
+                    whois_mock = MagicMock(whois=MagicMock(return_value=mock_data))
+                    with patch.dict("sys.modules", {"whois": whois_mock}):
                         await whois_lookup("example.com")
                 except Exception:
                     await whois_lookup("example.com")
@@ -133,9 +129,7 @@ class TestCertTransparency:
                 {"name_value": "sub.example.com\nwww.example.com"},
                 {"name_value": "*.example.com"},
             ]
-            transport = httpx.MockTransport(
-                lambda req: httpx.Response(200, json=response_data)
-            )
+            transport = httpx.MockTransport(lambda req: httpx.Response(200, json=response_data))
             with patch("redcheck.plugins.recon.passive_recon.httpx.AsyncClient") as mock_cls:
                 mock_cls.return_value = httpx.AsyncClient(transport=transport)
                 findings = await cert_transparency("example.com")
@@ -153,8 +147,7 @@ class TestCertTransparency:
                 mock_cls.return_value.__aexit__ = AsyncMock(return_value=False)
                 findings = await cert_transparency("fail.com")
             assert any(
-                "error" in str(f.get("detail", "")).lower()
-                or f.get("data", {}).get("error")
+                "error" in str(f.get("detail", "")).lower() or f.get("data", {}).get("error")
                 for f in findings
             )
 

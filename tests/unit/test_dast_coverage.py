@@ -44,9 +44,7 @@ class TestExtractTargets:
 class TestCheckSecurityHeaders:
     def test_missing_headers(self) -> None:
         async def _run() -> None:
-            transport = httpx.MockTransport(
-                lambda req: httpx.Response(200, headers={}, text="ok")
-            )
+            transport = httpx.MockTransport(lambda req: httpx.Response(200, headers={}, text="ok"))
             with patch(
                 "redcheck.plugins.dast.dast_scanner.httpx.AsyncClient",
                 return_value=httpx.AsyncClient(transport=transport),
@@ -201,9 +199,7 @@ class TestCheckRedirects:
 
     def test_no_https_redirect(self) -> None:
         async def _run() -> None:
-            transport = httpx.MockTransport(
-                lambda req: httpx.Response(200, text="plain http")
-            )
+            transport = httpx.MockTransport(lambda req: httpx.Response(200, text="plain http"))
             with patch(
                 "redcheck.plugins.dast.dast_scanner.httpx.AsyncClient",
                 return_value=httpx.AsyncClient(transport=transport),
@@ -216,9 +212,7 @@ class TestCheckRedirects:
     def test_redirect_non_https(self) -> None:
         async def _run() -> None:
             transport = httpx.MockTransport(
-                lambda req: httpx.Response(
-                    302, headers={"location": "http://other.com/"}, text=""
-                )
+                lambda req: httpx.Response(302, headers={"location": "http://other.com/"}, text="")
             )
             with patch(
                 "redcheck.plugins.dast.dast_scanner.httpx.AsyncClient",
@@ -247,17 +241,13 @@ class TestDASTPlugin:
         plugin = DASTPlugin()
         with patch.object(plugin, "_scan_target", new_callable=AsyncMock) as mock_scan:
             mock_scan.return_value = [{"type": "finding", "target": "h1", "detail": "x"}]
-            result = plugin.execute(
-                {"authorized_targets": [{"host": "h1", "ports": [443]}]}
-            )
+            result = plugin.execute({"authorized_targets": [{"host": "h1", "ports": [443]}]})
         assert result.success
         assert len(result.findings) == 1
 
     def test_execute_error_handling(self) -> None:
         plugin = DASTPlugin()
         with patch.object(plugin, "_scan_target", side_effect=RuntimeError("boom")):
-            result = plugin.execute(
-                {"authorized_targets": [{"host": "h1", "ports": [443]}]}
-            )
+            result = plugin.execute({"authorized_targets": [{"host": "h1", "ports": [443]}]})
         assert result.success
         assert len(result.errors) > 0

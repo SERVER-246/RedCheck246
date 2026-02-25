@@ -19,6 +19,7 @@ from redcheck.plugins.detection.latency_tester import (
 
 # ── Coverage Validator ────────────────────────────────────────────────
 
+
 class TestTechniqueIds:
     def test_returns_frozenset(self) -> None:
         ids = technique_ids()
@@ -118,11 +119,13 @@ class TestDetectionCoverageValidator:
 
     def test_execute_offline(self) -> None:
         plugin = DetectionCoverageValidator()
-        result = plugin.execute({
-            "detected_techniques": ["T1046", "T1190"],
-            "detection_scope": ["T1046", "T1190", "T1596"],
-            "detection_wait_seconds": 0,
-        })
+        result = plugin.execute(
+            {
+                "detected_techniques": ["T1046", "T1190"],
+                "detection_scope": ["T1046", "T1190", "T1596"],
+                "detection_wait_seconds": 0,
+            }
+        )
         assert result.success
         assert result.metadata["coverage_percentage"] > 0
         assert result.metadata["detected_count"] == 2
@@ -130,24 +133,29 @@ class TestDetectionCoverageValidator:
     def test_execute_full_detection(self) -> None:
         plugin = DetectionCoverageValidator()
         scope = ["T1046", "T1190"]
-        result = plugin.execute({
-            "detected_techniques": scope,
-            "detection_scope": scope,
-            "detection_wait_seconds": 0,
-        })
+        result = plugin.execute(
+            {
+                "detected_techniques": scope,
+                "detection_scope": scope,
+                "detection_wait_seconds": 0,
+            }
+        )
         assert result.metadata["coverage_percentage"] == 100.0
 
     def test_execute_no_scope(self) -> None:
         plugin = DetectionCoverageValidator()
-        result = plugin.execute({
-            "detected_techniques": [],
-            "detection_wait_seconds": 0,
-        })
+        result = plugin.execute(
+            {
+                "detected_techniques": [],
+                "detection_wait_seconds": 0,
+            }
+        )
         assert result.success
         assert result.metadata["coverage_percentage"] == 0.0
 
 
 # ── Latency Tester ────────────────────────────────────────────────────
+
 
 class TestLatencyMarker:
     def test_prefix(self) -> None:
@@ -217,21 +225,25 @@ class TestAlertLatencyTester:
 
     def test_execute_offline(self) -> None:
         plugin = AlertLatencyTester()
-        result = plugin.execute({
-            "simulated_latencies_ms": [50.0, 100.0, 150.0],
-            "expected_latency_ms": 200.0,
-            "latency_probe_count": 3,
-        })
+        result = plugin.execute(
+            {
+                "simulated_latencies_ms": [50.0, 100.0, 150.0],
+                "expected_latency_ms": 200.0,
+                "latency_probe_count": 3,
+            }
+        )
         assert result.success
         assert result.metadata["probe_count"] == 3
         assert result.metadata["sla_met"] is True
 
     def test_execute_offline_failure(self) -> None:
         plugin = AlertLatencyTester()
-        result = plugin.execute({
-            "simulated_latencies_ms": [500.0, 600.0, 700.0],
-            "expected_latency_ms": 100.0,
-            "latency_probe_count": 3,
-        })
+        result = plugin.execute(
+            {
+                "simulated_latencies_ms": [500.0, 600.0, 700.0],
+                "expected_latency_ms": 100.0,
+                "latency_probe_count": 3,
+            }
+        )
         assert result.success
         assert result.metadata["sla_met"] is False

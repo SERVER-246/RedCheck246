@@ -108,9 +108,7 @@ class TestActivate:
         assert result.exit_code == 0
 
     def test_activate_set_mismatch(self) -> None:
-        result = runner.invoke(
-            app, ["activate", "--set"], input="code1\ncode2\n"
-        )
+        result = runner.invoke(app, ["activate", "--set"], input="code1\ncode2\n")
         assert result.exit_code != 0
 
     def test_activate_set_success(self) -> None:
@@ -118,9 +116,7 @@ class TestActivate:
             engine = MagicMock()
             engine.set_code.return_value = (True, "Code set successfully")
             mock_cls.return_value = engine
-            result = runner.invoke(
-                app, ["activate", "--set"], input="secret\nsecret\n"
-            )
+            result = runner.invoke(app, ["activate", "--set"], input="secret\nsecret\n")
             assert result.exit_code == 0
 
     def test_activate_verify_success(self) -> None:
@@ -128,9 +124,7 @@ class TestActivate:
             engine = MagicMock()
             engine.verify_code.return_value = True
             mock_cls.return_value = engine
-            result = runner.invoke(
-                app, ["activate", "--verify"], input="secret\n"
-            )
+            result = runner.invoke(app, ["activate", "--verify"], input="secret\n")
             assert result.exit_code == 0
 
     def test_activate_verify_failure(self) -> None:
@@ -138,9 +132,7 @@ class TestActivate:
             engine = MagicMock()
             engine.verify_code.return_value = False
             mock_cls.return_value = engine
-            result = runner.invoke(
-                app, ["activate", "--verify"], input="wrong\n"
-            )
+            result = runner.invoke(app, ["activate", "--verify"], input="wrong\n")
             assert result.exit_code != 0
 
 
@@ -167,18 +159,14 @@ class TestRecon:
         }
         roe_path = tmp_path / "roe.yaml"
         roe_path.write_text(yaml.dump(roe), encoding="utf-8")
-        result = runner.invoke(
-            app, ["recon", "--roe", str(roe_path), "--dry-run"]
-        )
+        result = runner.invoke(app, ["recon", "--roe", str(roe_path), "--dry-run"])
         # Should succeed in dry-run mode
         assert result.exit_code == 0
 
     def test_recon_policy_denied(self, tmp_path: Path) -> None:
         roe_path = tmp_path / "roe.yaml"
         roe_path.write_text("bad: data\n", encoding="utf-8")
-        result = runner.invoke(
-            app, ["recon", "--roe", str(roe_path), "--dry-run"]
-        )
+        result = runner.invoke(app, ["recon", "--roe", str(roe_path), "--dry-run"])
         assert result.exit_code != 0
 
 
@@ -195,9 +183,7 @@ class TestRunCmd:
         }
         roe_path = tmp_path / "roe.yaml"
         roe_path.write_text(yaml.dump(roe), encoding="utf-8")
-        result = runner.invoke(
-            app, ["run", "sast-scanner", "--roe", str(roe_path), "--dry-run"]
-        )
+        result = runner.invoke(app, ["run", "sast-scanner", "--roe", str(roe_path), "--dry-run"])
         assert result.exit_code == 0
 
     def test_run_no_activation(self, tmp_path: Path) -> None:
@@ -216,9 +202,7 @@ class TestRunCmd:
             engine = MagicMock()
             engine.is_configured = False
             mock_cls.return_value = engine
-            result = runner.invoke(
-                app, ["run", "passive-recon", "--roe", str(roe_path)]
-            )
+            result = runner.invoke(app, ["run", "passive-recon", "--roe", str(roe_path)])
         assert result.exit_code != 0
 
 
@@ -234,9 +218,7 @@ class TestReport:
     def test_report_json_format(self, tmp_path: Path) -> None:
         reports = tmp_path / "reports"
         reports.mkdir()
-        result = runner.invoke(
-            app, ["report", str(tmp_path), "--output", "json"]
-        )
+        result = runner.invoke(app, ["report", str(tmp_path), "--output", "json"])
         assert result.exit_code == 0
 
     def test_report_missing_dir(self) -> None:
@@ -292,10 +274,13 @@ class TestResearch:
         result = runner.invoke(
             app,
             [
-                "--format", "json",
+                "--format",
+                "json",
                 "research",
-                "--roe", str(roe_path),
-                "--plugin", "passive-recon",
+                "--roe",
+                str(roe_path),
+                "--plugin",
+                "passive-recon",
             ],
         )
         assert result.exit_code == 0

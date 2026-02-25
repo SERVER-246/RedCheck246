@@ -55,12 +55,14 @@ class TestServiceVersionDetector:
 class TestNetworkScanner:
     def test_dry_run_with_targets(self) -> None:
         plugin = NetworkScanner()
-        result = plugin.dry_run({
-            "authorized_targets": [
-                {"host": "10.0.0.1", "ports": [80]},
-                "10.0.0.2",
-            ]
-        })
+        result = plugin.dry_run(
+            {
+                "authorized_targets": [
+                    {"host": "10.0.0.1", "ports": [80]},
+                    "10.0.0.2",
+                ]
+            }
+        )
         assert result.success
         assert result.metadata["mode"] == "dry-run"
         assert len(result.metadata["hosts"]) == 2
@@ -83,9 +85,11 @@ class TestNetworkScanner:
         plugin._pkt = MagicMock()
         plugin._pkt.tcp_syn_probe = AsyncMock(return_value=(True, 5.0))
 
-        result = plugin.execute({
-            "authorized_targets": [{"host": "10.0.0.1", "ports": [80, 443]}],
-        })
+        result = plugin.execute(
+            {
+                "authorized_targets": [{"host": "10.0.0.1", "ports": [80, 443]}],
+            }
+        )
         assert result.success
         assert result.metadata["hosts_scanned"] == 1
 
@@ -94,9 +98,11 @@ class TestNetworkScanner:
         plugin._pkt = MagicMock()
         plugin._pkt.tcp_syn_probe = AsyncMock(return_value=(False, 0.0))
 
-        result = plugin.execute({
-            "authorized_targets": [{"host": "10.0.0.1", "ports": [80]}],
-        })
+        result = plugin.execute(
+            {
+                "authorized_targets": [{"host": "10.0.0.1", "ports": [80]}],
+            }
+        )
         assert result.success
         assert len(result.findings) == 0  # nothing open
 

@@ -304,9 +304,7 @@ class TestActivateMutations:
         orch = Orchestrator()
         orch.audit = MagicMock()
         orch.activate("any")
-        mock_log.warning.assert_called_once_with(
-            "activation_failed", reason="no_engagement"
-        )
+        mock_log.warning.assert_called_once_with("activation_failed", reason="no_engagement")
 
     def test_activate_no_engagement_audit_exact(self):
         """Kills mutants 38-40 (audit action/details/level XX mutation)."""
@@ -487,8 +485,9 @@ class TestRunPluginMutations:
         assert len(dry_calls) == 1
 
         # Check audit — kills 66-69
-        audit_calls = [c for c in orch.audit.log.call_args_list
-                       if c.kwargs.get("action") == "PLUGIN_DRY_RUN"]
+        audit_calls = [
+            c for c in orch.audit.log.call_args_list if c.kwargs.get("action") == "PLUGIN_DRY_RUN"
+        ]
         assert len(audit_calls) == 1
         kw = audit_calls[0].kwargs
         assert kw["details"] == "Dry run: stub-test"
@@ -558,8 +557,9 @@ class TestRunPluginMutations:
         assert len(complete_calls) == 1
 
         # Check audit PLUGIN_EXECUTE — kills 76-79
-        exec_audit = [c for c in orch.audit.log.call_args_list
-                      if c.kwargs.get("action") == "PLUGIN_EXECUTE"]
+        exec_audit = [
+            c for c in orch.audit.log.call_args_list if c.kwargs.get("action") == "PLUGIN_EXECUTE"
+        ]
         assert len(exec_audit) == 1
         kw = exec_audit[0].kwargs
         assert kw["details"] == "Executing: stub-test"
@@ -567,8 +567,9 @@ class TestRunPluginMutations:
         assert kw["engagement_id"] == "TEST-001"
 
         # Check audit PLUGIN_COMPLETE — kills 92-96
-        comp_audit = [c for c in orch.audit.log.call_args_list
-                      if c.kwargs.get("action") == "PLUGIN_COMPLETE"]
+        comp_audit = [
+            c for c in orch.audit.log.call_args_list if c.kwargs.get("action") == "PLUGIN_COMPLETE"
+        ]
         assert len(comp_audit) == 1
         kw2 = comp_audit[0].kwargs
         details = kw2["details"]
@@ -820,8 +821,11 @@ class TestArunPluginMutations:
         assert len(exec_calls) == 1
 
         # Check audit — kills 138-139
-        exec_audit = [c for c in orch.audit.log.call_args_list
-                      if c.kwargs.get("action") == "ASYNC_PLUGIN_EXECUTE"]
+        exec_audit = [
+            c
+            for c in orch.audit.log.call_args_list
+            if c.kwargs.get("action") == "ASYNC_PLUGIN_EXECUTE"
+        ]
         assert len(exec_audit) == 1
         assert exec_audit[0].kwargs["details"] == "Async executing: async-stub"
 
@@ -1036,8 +1040,11 @@ class TestArunPluginMutations:
         assert len(comp_calls) == 1
 
         # Check audit — kills 155-157
-        comp_audit = [c for c in orch.audit.log.call_args_list
-                      if c.kwargs.get("action") == "ASYNC_PLUGIN_COMPLETE"]
+        comp_audit = [
+            c
+            for c in orch.audit.log.call_args_list
+            if c.kwargs.get("action") == "ASYNC_PLUGIN_COMPLETE"
+        ]
         assert len(comp_audit) == 1
         kw = comp_audit[0].kwargs
         assert "async-stub:" in kw["details"]
@@ -1084,8 +1091,7 @@ class TestShutdownMutations:
         orch.load_engagement(valid_roe_file)
         orch.shutdown()
         shutdown_calls = [
-            c for c in mock_log.info.call_args_list
-            if c[0][0] == "engagement_shutdown"
+            c for c in mock_log.info.call_args_list if c[0][0] == "engagement_shutdown"
         ]
         assert len(shutdown_calls) == 1
 
@@ -1095,8 +1101,11 @@ class TestShutdownMutations:
         orch.audit = MagicMock()
         orch.load_engagement(valid_roe_file)
         orch.shutdown()
-        shutdown_audit = [c for c in orch.audit.log_engagement_action.call_args_list
-                          if c.kwargs.get("action") == "ENGAGEMENT_SHUTDOWN"]
+        shutdown_audit = [
+            c
+            for c in orch.audit.log_engagement_action.call_args_list
+            if c.kwargs.get("action") == "ENGAGEMENT_SHUTDOWN"
+        ]
         assert len(shutdown_audit) == 1
 
 
@@ -1210,26 +1219,26 @@ class TestBuildEngagementFromRoeMutations:
         data = {
             "engagement_id": "BUILD-2",
             "authorizer": "admin",
-            "targets": ["fallback.com"],
+            "targets": ["fallback.example"],
             "allowed_tests": ["recon"],
             "start_time_utc": "2025-06-01T00:00:00Z",
             "end_time_utc": "2025-12-31T23:59:59Z",
         }
         ctx = _build_engagement_from_roe(data, "/tmp/roe.yaml")
-        assert "fallback.com" in ctx.targets
+        assert "fallback.example" in ctx.targets
 
     def test_dict_targets_use_host_key(self):
         """Kills mutant 197 (host key XX mutation in dict targets)."""
         data = {
             "engagement_id": "BUILD-3",
             "authorizer": "admin",
-            "authorized_targets": [{"host": "dict-target.com"}],
+            "authorized_targets": [{"host": "dict-target.example"}],
             "allowed_tests": ["recon"],
             "start_time_utc": "2025-06-01T00:00:00Z",
             "end_time_utc": "2025-12-31T23:59:59Z",
         }
         ctx = _build_engagement_from_roe(data, "/tmp/roe.yaml")
-        assert "dict-target.com" in ctx.targets
+        assert "dict-target.example" in ctx.targets
 
     def test_z_suffix_parsed(self):
         """Kills mutant 200 (Z suffix detection mutation)."""

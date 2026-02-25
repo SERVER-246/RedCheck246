@@ -34,9 +34,7 @@ class TestCTLogMonitorExecute:
                     "serial_number": "ABC123",
                 },
             ]
-            transport = httpx.MockTransport(
-                lambda req: httpx.Response(200, json=ct_response)
-            )
+            transport = httpx.MockTransport(lambda req: httpx.Response(200, json=ct_response))
             plugin = CTLogMonitor()
             with patch(
                 "redcheck.plugins.osint.ct_watch.httpx.AsyncClient",
@@ -51,9 +49,7 @@ class TestCTLogMonitorExecute:
 
     def test_execute_non_200(self) -> None:
         async def _run() -> None:
-            transport = httpx.MockTransport(
-                lambda req: httpx.Response(500, text="error")
-            )
+            transport = httpx.MockTransport(lambda req: httpx.Response(500, text="error"))
             plugin = CTLogMonitor()
             with patch(
                 "redcheck.plugins.osint.ct_watch.httpx.AsyncClient",
@@ -67,9 +63,7 @@ class TestCTLogMonitorExecute:
 
     def test_execute_non_list_response(self) -> None:
         async def _run() -> None:
-            transport = httpx.MockTransport(
-                lambda req: httpx.Response(200, json={"not": "a list"})
-            )
+            transport = httpx.MockTransport(lambda req: httpx.Response(200, json={"not": "a list"}))
             plugin = CTLogMonitor()
             with patch(
                 "redcheck.plugins.osint.ct_watch.httpx.AsyncClient",
@@ -109,9 +103,7 @@ class TestBreachLookupExecute:
         async def _run() -> None:
             # HIBP returns suffix:count format
             def _handler(req: httpx.Request) -> httpx.Response:
-                return httpx.Response(
-                    200, text="ABCDE:10\nFGHIJ:5\nOTHERSUFFIX:1\n"
-                )
+                return httpx.Response(200, text="ABCDE:10\nFGHIJ:5\nOTHERSUFFIX:1\n")
 
             transport = httpx.MockTransport(_handler)
             plugin = BreachLookup()
@@ -247,14 +239,17 @@ class TestSupplyChainPlugin:
         req = tmp_path / "requirements.txt"
         req.write_text("requests==2.28.0\nflask==2.3.0\n", encoding="utf-8")
         plugin = SupplyChainPlugin()
-        with patch(
-            "redcheck.plugins.supply_chain.supply_chain_audit.scan_vulnerabilities",
-            new_callable=AsyncMock,
-            return_value=[],
-        ), patch(
-            "redcheck.plugins.supply_chain.supply_chain_audit.check_licenses",
-            new_callable=AsyncMock,
-            return_value=[],
+        with (
+            patch(
+                "redcheck.plugins.supply_chain.supply_chain_audit.scan_vulnerabilities",
+                new_callable=AsyncMock,
+                return_value=[],
+            ),
+            patch(
+                "redcheck.plugins.supply_chain.supply_chain_audit.check_licenses",
+                new_callable=AsyncMock,
+                return_value=[],
+            ),
         ):
             result = plugin.execute({"project_root": str(tmp_path)})
         assert result.success
@@ -267,20 +262,25 @@ class TestSupplyChainPlugin:
         req.write_text("requests==2.28.0\n", encoding="utf-8")
         evidence_dir = tmp_path / "evidence"
         plugin = SupplyChainPlugin()
-        with patch(
-            "redcheck.plugins.supply_chain.supply_chain_audit.scan_vulnerabilities",
-            new_callable=AsyncMock,
-            return_value=[],
-        ), patch(
-            "redcheck.plugins.supply_chain.supply_chain_audit.check_licenses",
-            new_callable=AsyncMock,
-            return_value=[],
+        with (
+            patch(
+                "redcheck.plugins.supply_chain.supply_chain_audit.scan_vulnerabilities",
+                new_callable=AsyncMock,
+                return_value=[],
+            ),
+            patch(
+                "redcheck.plugins.supply_chain.supply_chain_audit.check_licenses",
+                new_callable=AsyncMock,
+                return_value=[],
+            ),
         ):
-            result = plugin.execute({
-                "project_root": str(tmp_path),
-                "evidence_dir": str(evidence_dir),
-                "engagement_id": "E1",
-            })
+            result = plugin.execute(
+                {
+                    "project_root": str(tmp_path),
+                    "evidence_dir": str(evidence_dir),
+                    "engagement_id": "E1",
+                }
+            )
         assert result.success
         assert (evidence_dir / "sbom.json").exists()
 
@@ -290,19 +290,24 @@ class TestSupplyChainPlugin:
         req = tmp_path / "requirements.txt"
         req.write_text("requests==2.28.0\n", encoding="utf-8")
         plugin = SupplyChainPlugin()
-        with patch(
-            "redcheck.plugins.supply_chain.supply_chain_audit.scan_vulnerabilities",
-            new_callable=AsyncMock,
-            return_value=[{
-                "type": "degraded",
-                "target": "requests",
-                "detail": "degraded",
-                "data": {"degraded": True},
-            }],
-        ), patch(
-            "redcheck.plugins.supply_chain.supply_chain_audit.check_licenses",
-            new_callable=AsyncMock,
-            return_value=[],
+        with (
+            patch(
+                "redcheck.plugins.supply_chain.supply_chain_audit.scan_vulnerabilities",
+                new_callable=AsyncMock,
+                return_value=[
+                    {
+                        "type": "degraded",
+                        "target": "requests",
+                        "detail": "degraded",
+                        "data": {"degraded": True},
+                    }
+                ],
+            ),
+            patch(
+                "redcheck.plugins.supply_chain.supply_chain_audit.check_licenses",
+                new_callable=AsyncMock,
+                return_value=[],
+            ),
         ):
             result = plugin.execute({"project_root": str(tmp_path)})
         assert result.metadata.get("degraded") is True

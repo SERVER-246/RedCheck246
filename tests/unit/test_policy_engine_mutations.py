@@ -108,8 +108,13 @@ class TestValidateRoeReturnValues:
         # Verify join uses ", " separator — kills mutant 24
         assert ", " in msg
         # Verify each missing field is listed
-        for field in ["authorizer", "authorized_targets", "allowed_tests",
-                       "start_time_utc", "end_time_utc"]:
+        for field in [
+            "authorizer",
+            "authorized_targets",
+            "allowed_tests",
+            "start_time_utc",
+            "end_time_utc",
+        ]:
             assert field in msg
         assert data == {}
 
@@ -298,9 +303,7 @@ class TestValidateRoeAuditCalls:
         valid, _, _ = pe.validate_roe(roe_file)
         assert valid is True
 
-        mock_log.info.assert_called_once_with(
-            "roe_validated", engagement_id="ENG-1"
-        )
+        mock_log.info.assert_called_once_with("roe_validated", engagement_id="ENG-1")
 
 
 # ===================================================================
@@ -396,9 +399,7 @@ class TestIsActionAllowed:
     def test_activation_missing_defaults_to_false(self) -> None:
         """Kills mutant 105 (default False → True)."""
         pe = PolicyEngine()
-        allowed, reason = pe.is_action_allowed(
-            "plugin", {"roe_validated": True}
-        )
+        allowed, reason = pe.is_action_allowed("plugin", {"roe_validated": True})
         assert allowed is False
         assert reason == "Activation code has not been verified"
 

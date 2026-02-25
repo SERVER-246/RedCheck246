@@ -112,8 +112,12 @@ class TestSASTPluginExecute:
         with patch(
             "redcheck.plugins.sast.sast_scanner._scan_bandit",
             return_value=[
-                {"type": "sast_bandit", "target": "N/A", "detail": "bandit not installed",
-                 "data": {"error": "missing_dependency"}}
+                {
+                    "type": "sast_bandit",
+                    "target": "N/A",
+                    "detail": "bandit not installed",
+                    "data": {"error": "missing_dependency"},
+                }
             ],
         ):
             result = plugin.execute({"target_paths": [str(f)]})

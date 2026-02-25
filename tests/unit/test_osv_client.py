@@ -67,15 +67,16 @@ class TestOSVClientQuery:
 
     def test_query_degraded_on_failure(self) -> None:
         async def _run() -> None:
-            transport = httpx.MockTransport(
-                lambda req: httpx.Response(500, text="error")
-            )
+            transport = httpx.MockTransport(lambda req: httpx.Response(500, text="error"))
             client = OSVClient()
             client._interval = 0.0  # skip rate limiting
-            with patch(
-                "redcheck.plugins.supply_chain.osv_client.httpx.AsyncClient",
-                return_value=httpx.AsyncClient(transport=transport),
-            ), patch("redcheck.plugins.supply_chain.osv_client._BACKOFF", [0.0, 0.0]):
+            with (
+                patch(
+                    "redcheck.plugins.supply_chain.osv_client.httpx.AsyncClient",
+                    return_value=httpx.AsyncClient(transport=transport),
+                ),
+                patch("redcheck.plugins.supply_chain.osv_client._BACKOFF", [0.0, 0.0]),
+            ):
                 result = await client.query("bad", "0.0", "PyPI")
             assert result.get("degraded") is True
 
@@ -91,19 +92,19 @@ class TestOSVClientBatchQuery:
                     {"vulns": []},
                 ]
             }
-            transport = httpx.MockTransport(
-                lambda req: httpx.Response(200, json=resp_data)
-            )
+            transport = httpx.MockTransport(lambda req: httpx.Response(200, json=resp_data))
             client = OSVClient()
             client._interval = 0.0
             with patch(
                 "redcheck.plugins.supply_chain.osv_client.httpx.AsyncClient",
                 return_value=httpx.AsyncClient(transport=transport),
             ):
-                results = await client.query_batch([
-                    {"name": "a", "version": "1.0"},
-                    {"name": "b", "version": "2.0"},
-                ])
+                results = await client.query_batch(
+                    [
+                        {"name": "a", "version": "1.0"},
+                        {"name": "b", "version": "2.0"},
+                    ]
+                )
             assert len(results) == 2
             assert results[0]["vulns"] == [{"id": "V1"}]
 
@@ -121,9 +122,11 @@ class TestOSVClientBatchQuery:
                 "redcheck.plugins.supply_chain.osv_client.httpx.AsyncClient",
                 return_value=httpx.AsyncClient(transport=transport),
             ):
-                results = await client.query_batch([
-                    {"name": "x", "version": "1.0"},
-                ])
+                results = await client.query_batch(
+                    [
+                        {"name": "x", "version": "1.0"},
+                    ]
+                )
             assert len(results) == 1
             assert results[0]["degraded"] is True
 
