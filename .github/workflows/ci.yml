@@ -93,6 +93,7 @@ jobs:
   mutation:
     name: Mutation Testing (Critical Policy Code)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     needs: [test]
     steps:
       - uses: actions/checkout@v6
@@ -109,20 +110,29 @@ jobs:
 
       - name: Run mutation tests on policy_engine
         run: |
+          rm -f .mutmut-cache
           mutmut run --paths-to-mutate=redcheck/core/policy_engine.py \
-            --tests-dir=tests/ --runner="pytest -x -q" || true
+            --tests-dir=tests/ \
+            --runner="pytest -x -q tests/test_policy_engine.py tests/unit/test_policy_engine_coverage.py tests/unit/test_policy_engine_mutations.py" \
+            || true
           mutmut results
 
       - name: Run mutation tests on orchestrator
         run: |
+          rm -f .mutmut-cache
           mutmut run --paths-to-mutate=redcheck/core/orchestrator.py \
-            --tests-dir=tests/ --runner="pytest -x -q" || true
+            --tests-dir=tests/ \
+            --runner="pytest -x -q tests/test_orchestrator.py tests/unit/test_orchestrator_mutations.py" \
+            || true
           mutmut results
 
       - name: Run mutation tests on scope_validator
         run: |
+          rm -f .mutmut-cache
           mutmut run --paths-to-mutate=redcheck/core/scope_validator.py \
-            --tests-dir=tests/ --runner="pytest -x -q" || true
+            --tests-dir=tests/ \
+            --runner="pytest -x -q tests/unit/test_scope_validator.py tests/unit/test_scope_validator_mutations.py" \
+            || true
           mutmut results
 
   build:
