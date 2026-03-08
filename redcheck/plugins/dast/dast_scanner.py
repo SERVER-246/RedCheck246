@@ -29,6 +29,14 @@ _HTTP_TIMEOUT = 10.0
 _SSL_TIMEOUT = 5.0
 
 
+def _strip_scheme(host: str) -> str:
+    """Remove any existing URL scheme from a host string."""
+    for prefix in ("https://", "http://"):
+        if host.startswith(prefix):
+            host = host[len(prefix) :]
+    return host.rstrip("/")
+
+
 def _extract_targets(context: dict) -> list[dict[str, Any]]:
     """Normalise target list from context."""
     raw = context.get("authorized_targets", [])
@@ -381,6 +389,7 @@ async def discover_paths(base_url: str) -> list[dict[str, Any]]:
 async def check_redirects(host: str) -> list[dict[str, Any]]:
     """Check HTTP→HTTPS redirect and open-redirect patterns."""
     findings: list[dict[str, Any]] = []
+    host = _strip_scheme(host)
     http_url = f"http://{host}/"
     try:
         async with httpx.AsyncClient(
@@ -479,7 +488,9 @@ class DASTPlugin(BasePlugin):
         """Run all DAST modules for a single target."""
         findings: list[dict[str, Any]] = []
 
-        # Determine base URL (prefer HTTPS)
+        # Determine base URL (prefer HTTPS); strip existing scheme to avoid
+        # double-scheme URLs like "https://https://evil.com" (M-5).
+        host = _strip_scheme(host)
         base_url = f"https://{host}" if 443 in ports else f"http://{host}"
 
         # 1. SSL/TLS (only if port 443)

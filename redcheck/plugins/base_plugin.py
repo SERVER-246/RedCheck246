@@ -6,6 +6,7 @@ Active plugins MUST pass PolicyEngine.authorize() before execution.
 
 from __future__ import annotations
 
+import difflib
 import importlib.metadata
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
@@ -185,6 +186,11 @@ class PluginRegistry:
     def get(cls, name: str) -> type[BasePlugin] | None:
         """Get a plugin class by name."""
         return cls._plugins.get(name)
+
+    @classmethod
+    def suggest(cls, name: str, n: int = 3, cutoff: float = 0.5) -> list[str]:
+        """Return up to *n* registered plugin names similar to *name*."""
+        return difflib.get_close_matches(name, cls._plugins.keys(), n=n, cutoff=cutoff)
 
     @classmethod
     def get_instance(cls, name: str) -> BasePlugin | None:

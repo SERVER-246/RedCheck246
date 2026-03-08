@@ -33,8 +33,22 @@ class PolicyEngine:
     # RoE validation
     # ------------------------------------------------------------------
 
-    def validate_roe(self, roe_path: str | Path) -> tuple[bool, str, dict[str, Any]]:
+    def validate_roe(
+        self,
+        roe_path: str | Path,
+        verifier: Any | None = None,
+    ) -> tuple[bool, str, dict[str, Any]]:
         """Validate a Rules of Engagement YAML file.
+
+        Parameters
+        ----------
+        roe_path:
+            Path to the RoE YAML file.
+        verifier:
+            Optional ``SignatureVerifier`` instance.  When provided **and**
+            configured, the RoE signature is cryptographically verified.
+            When *None* (default), only presence of the ``signature``
+            field is checked (backward-compatible behaviour).
 
         Returns ``(valid, message, parsed_roe)``.
         """
@@ -92,6 +106,24 @@ class PolicyEngine:
 
         if "signature" not in roe:
             return False, "RoE must contain a 'signature' field", roe
+
+        # Opt-in cryptographic signature verification (S3-3).
+        # When a configured verifier is supplied, actually verify the
+        # signature instead of only checking that the field exists.
+        if verifier is not None and hasattr(verifier, "is_configured") and verifier.is_configured:
+            sig_valid, sig_msg = verifier.verify_roe(roe_path)
+            if not sig_valid:
+                log.warning(
+                    "roe_signature_invalid",
+                    engagement_id=roe.get("engagement_id"),
+                    reason=sig_msg,
+                )
+                return False, f"RoE signature verification failed: {sig_msg}", roe
+            log.info(
+                "roe_signature_verified",
+                engagement_id=roe.get("engagement_id"),
+                mode=getattr(verifier, "mode", "unknown"),
+            )
 
         log.info("roe_validated", engagement_id=roe.get("engagement_id"))
         self.audit.log(

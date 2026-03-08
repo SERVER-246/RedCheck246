@@ -98,6 +98,38 @@ _SECRET_PATTERNS: list[tuple[str, str, re.Pattern[str]]] = [
 _DEP_UNPINNED_RE = re.compile(r"^([a-zA-Z0-9_-]+)\s*$", re.MULTILINE)
 _DEP_INSECURE_URL = re.compile(r"^-i\s+http://", re.MULTILINE)
 
+# Default directories excluded from SAST scans (S3-6).
+_DEFAULT_EXCLUDE_DIRS: frozenset[str] = frozenset(
+    {
+        "__pycache__",
+        ".venv",
+        "venv",
+        ".env",
+        "node_modules",
+        ".git",
+        ".hg",
+        ".svn",
+        "build",
+        "dist",
+        ".tox",
+        ".mypy_cache",
+        ".pytest_cache",
+        ".eggs",
+        "*.egg-info",
+    }
+)
+
+
+def _should_exclude_dir(
+    dirname: str,
+    exclude_dirs: frozenset[str] = _DEFAULT_EXCLUDE_DIRS,
+) -> bool:
+    """Return True if *dirname* should be skipped during SAST walks."""
+    if dirname in exclude_dirs:
+        return True
+    # Handle glob-like patterns (e.g. "*.egg-info")
+    return dirname.endswith(".egg-info")
+
 
 # ---------------------------------------------------------------------------
 # Scanner helpers
@@ -135,6 +167,7 @@ def _scan_bandit(paths: list[Path]) -> list[dict[str, Any]]:
     """Run bandit programmatically and collect findings."""
     findings: list[dict[str, Any]] = []
     try:
+        from bandit.core import config as bandit_config  # type: ignore[import-untyped]
         from bandit.core import manager as bandit_manager  # type: ignore[import-untyped]
     except ImportError:
         findings.append(
@@ -152,7 +185,8 @@ def _scan_bandit(paths: list[Path]) -> list[dict[str, Any]]:
         if p.is_file() and p.suffix == ".py":
             py_files.append(str(p))
         elif p.is_dir():
-            for root, _dirs, files in os.walk(p):
+            for root, dirs, files in os.walk(p):
+                dirs[:] = [d for d in dirs if not _should_exclude_dir(d)]
                 for f in files:
                     if f.endswith(".py"):
                         py_files.append(os.path.join(root, f))
@@ -162,7 +196,7 @@ def _scan_bandit(paths: list[Path]) -> list[dict[str, Any]]:
 
     try:
         b_mgr = bandit_manager.BanditManager(
-            bandit_manager.BanditConfig(),  # type: ignore[call-arg]
+            bandit_config.BanditConfig(),
             agg_type="file",
         )
         b_mgr.discover_files(py_files)
@@ -289,7 +323,8 @@ class SASTPlugin(BasePlugin):
                 if p.is_file():
                     all_findings.extend(_scan_file_patterns(p))
                 elif p.is_dir():
-                    for root, _dirs, files in os.walk(p):
+                    for root, dirs, files in os.walk(p):
+                        dirs[:] = [d for d in dirs if not _should_exclude_dir(d)]
                         for fname in files:
                             if fname.endswith(
                                 (

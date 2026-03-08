@@ -368,7 +368,7 @@ class TestRunPluginMutations:
         orch.load_engagement(valid_roe_file)
         result = orch.run_plugin("nonexistent")
         assert result.success is False
-        assert result.errors[0] == "Plugin 'nonexistent' not found in registry"
+        assert result.errors[0].startswith("Plugin 'nonexistent' not found in registry")
 
     def test_context_keys_exact(self, valid_roe_file):
         """Kills mutants 53-64 (context dict key/value mutations)."""
@@ -1419,6 +1419,7 @@ class TestBuildEngagementFromRoeMutations:
             "allowed_tests": ["recon"],
             "start_time_utc": "2025-06-01T00:00:00Z",
             "end_time_utc": "2025-12-31T23:59:59Z",
+            "signature": "abc123",
         }
         ctx = _build_engagement_from_roe(data, "/my/roe.yaml")
         assert ctx.roe_path == "/my/roe.yaml"

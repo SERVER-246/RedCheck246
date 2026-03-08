@@ -28,6 +28,15 @@ from redcheck.plugins.fuzzing.payloads import (
 _HTTP_TIMEOUT = 10.0
 _MAX_RPS = 10  # default rate limit
 
+
+def _strip_scheme(host: str) -> str:
+    """Remove any existing URL scheme from a host string."""
+    for prefix in ("https://", "http://"):
+        if host.startswith(prefix):
+            host = host[len(prefix) :]
+    return host.rstrip("/")
+
+
 # Patterns indicating a reflected payload or error leakage
 _ERROR_PATTERNS = re.compile(
     r"(?i)(?:sql\s*(?:syntax|error)|"
@@ -339,6 +348,7 @@ class FuzzingPlugin(BasePlugin):
             if not host:
                 continue
             ports = target.get("ports", [80, 443])
+            host = _strip_scheme(host)
             base_url = f"https://{host}" if 443 in ports else f"http://{host}"
 
             try:
@@ -358,6 +368,12 @@ class FuzzingPlugin(BasePlugin):
                 "total_findings": len(all_findings),
                 "max_rps": max_rps,
                 "modules": ["query_param_fuzz", "header_fuzz", "body_fuzz"],
+                "note": (
+                    "0 findings means the target handled all fuzz payloads "
+                    "without errors, reflections, or timing anomalies."
+                    if not all_findings
+                    else ""
+                ),
             },
         )
 

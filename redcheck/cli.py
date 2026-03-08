@@ -20,6 +20,7 @@ import typer
 import yaml
 from rich.console import Console
 
+import redcheck.plugins  # noqa: F401  # trigger auto-discovery
 from redcheck import __version__
 from redcheck.core.activation_engine import ActivationEngine
 from redcheck.core.audit import get_audit_logger
@@ -36,7 +37,7 @@ from redcheck.output import (
     print_banner,
 )
 
-# Import plugins to trigger auto-registration
+# Explicit imports kept as fallback until auto-discovery is proven on CI.
 from redcheck.plugins.base_plugin import PluginRegistry
 from redcheck.plugins.dast.dast_scanner import DASTPlugin  # noqa: F401
 from redcheck.plugins.fuzzing.protocol_fuzzer import FuzzingPlugin  # noqa: F401
@@ -157,12 +158,30 @@ def run_cmd(
     plugin: str = typer.Argument(..., help="Plugin name to execute"),
     roe: str = typer.Option(..., "--roe", "-r", help="Path to RoE YAML file"),
     dry_run: bool = typer.Option(False, "--dry-run", help="Simulate only"),
+    output_dir: str | None = typer.Option(
+        None,
+        "--output-dir",
+        "-o",
+        help="Directory to write JSON/PDF reports into (optional)",
+    ),
+    report_format: str = typer.Option(
+        "json",
+        "--report-format",
+        help="Report format: json, pdf, all (default: json)",
+    ),
 ) -> None:
     """Execute a specific plugin."""
-    _run_plugin_impl(plugin, roe, dry_run)
+    _run_plugin_impl(plugin, roe, dry_run, output_dir=output_dir, report_format=report_format)
 
 
-def _run_plugin_impl(plugin_name: str, roe_path: str, dry_run: bool) -> None:
+def _run_plugin_impl(
+    plugin_name: str,
+    roe_path: str,
+    dry_run: bool,
+    *,
+    output_dir: str | None = None,
+    report_format: str = "json",
+) -> None:
     """Common plugin execution logic."""
     orch = Orchestrator()
 
@@ -201,6 +220,68 @@ def _run_plugin_impl(plugin_name: str, roe_path: str, dry_run: bool) -> None:
         "mode": "dry-run" if dry_run else "live",
     }
     format_scan_result(result_dict, _format)
+
+    # --- Report generation (BC-7: failure here must never abort the scan) ---
+    if output_dir and not dry_run:
+        try:
+            from redcheck.core.report_adapter import plugin_result_to_scan_report
+            from redcheck.core.reporting import ReportExporter
+
+            engagement_id = ""
+            if orch.current_engagement:
+                engagement_id = orch.current_engagement.engagement_id
+
+            raw_findings = result.findings if isinstance(result.findings, list) else []
+            raw_metadata = result.metadata if isinstance(result.metadata, dict) else {}
+            scan_report = plugin_result_to_scan_report(
+                plugin_name=result.plugin_name,
+                findings=raw_findings,
+                metadata=raw_metadata,
+                engagement_id=engagement_id,
+                duration_ms=raw_metadata.get("duration_ms"),
+            )
+
+            exporter = ReportExporter()
+            out_path = Path(output_dir)
+
+            if report_format == "all":
+                paths = exporter.export_all(
+                    scan_report,
+                    out_path,
+                    sign=False,
+                )
+                out.print(
+                    f"[green]✓[/green] JSON report: {paths['json']}",
+                )
+                if paths.get("pdf"):
+                    out.print(
+                        f"[green]✓[/green] PDF report:  {paths['pdf']}",
+                    )
+            elif report_format == "pdf":
+                rpt_name = f"{engagement_id}_report.pdf"
+                pdf = exporter.export_pdf(
+                    scan_report,
+                    out_path / rpt_name,
+                )
+                if pdf:
+                    out.print(f"[green]✓[/green] PDF report: {pdf}")
+                else:
+                    out.print(
+                        "[yellow]![/yellow] PDF generation unavailable (weasyprint not installed)",
+                    )
+            else:
+                rpt_name = f"{engagement_id}_report.json"
+                jp = exporter.export_json(
+                    scan_report,
+                    out_path / rpt_name,
+                    sign=False,
+                )
+                out.print(f"[green]✓[/green] JSON report: {jp}")
+        except Exception as exc:
+            out.print(
+                f"[yellow]![/yellow] Report generation failed (scan results still valid): {exc}",
+            )
+
     orch.shutdown()
     if not result.success:
         raise typer.Exit(1)

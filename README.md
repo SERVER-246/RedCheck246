@@ -38,8 +38,9 @@ RoE Signature → Activation Code → Runtime Mode Check → Offensive Controls 
 - **Rate limiting** — Token bucket with configurable hard caps (never exceed `constants.py`)
 
 ### 🔌 Plugin Architecture
-- **21 plugins across 10 categories** — Recon, SAST, DAST, fuzzing, supply chain, network scanning, crypto analysis, OSINT, exploit verification, detection validation
-- **Auto-discovery** — Plugins register via `__init_subclass__` and entry points
+- **18 plugins across 10 categories** — Recon, SAST, DAST, fuzzing, supply chain, network scanning, crypto analysis, OSINT, exploit verification, detection validation
+- **Auto-discovery** — Plugins register via `__init_subclass__` with `pkgutil.walk_packages` package scanning
+- **Fuzzy name matching** — Misspelled plugin names return ranked suggestions via `difflib.get_close_matches`
 - **Lifecycle hooks** — `setup()`, `execute()`, `teardown()`, `health_check()`, `dry_run()`
 - **Capability classification** — `PASSIVE`, `ACTIVE`, `DESTRUCTIVE` with enforcement matrix
 
@@ -77,7 +78,7 @@ RoE Signature → Activation Code → Runtime Mode Check → Offensive Controls 
 - **Secure scanning** — Shared SSL context with TLS 1.2 minimum for all outbound connections
 
 ### 📊 Developer Experience
-- **Rich CLI** — Beautiful terminal output with tables, banners, JSON export via Typer
+- **Rich CLI** — 10 commands with `--output-dir` / `--report-format` flags, Rich tables, banners, JSON export via Typer
 - **Async-first** — All network plugins use `httpx.AsyncClient`
 - **Docker-ready** — Multi-stage build with non-root user (UID 1000), read-only filesystem
 - **Full test coverage** — 1 341 tests, 93% line coverage, mutation testing (≥95%) across Python 3.10–3.12
@@ -148,7 +149,7 @@ redcheck status
 
 ```
 redcheck/
-├── cli.py                     # Typer CLI (7 commands)
+├── cli.py                     # Typer CLI (10 commands)
 ├── config.py                  # Pydantic v2 BaseSettings (REDCHECK_ env prefix)
 ├── exceptions.py              # 11 custom exception classes
 ├── models.py                  # 7 enums + 8 Pydantic v2 models
@@ -164,6 +165,7 @@ redcheck/
 │   ├── multi_tenant.py        # Per-tenant filesystem isolation
 │   ├── rbac.py                # 5-role × 6-action RBAC permission matrix
 │   ├── reporting.py           # JSON/PDF/HTML report generation + Ed25519 signing
+│   ├── report_adapter.py      # Plugin result → ScanReport bridge for report export
 │   ├── audit_export.py        # AES-256-GCM encrypted audit export/import
 │   ├── sbom_integration.py    # SPDX 2.3 SBOM generation
 │   └── report_templates/      # Jinja2 report templates (executive, technical, compliance)
@@ -175,11 +177,10 @@ redcheck/
 │   ├── dast/                  # Dynamic analysis (6 async modules)
 │   ├── fuzzing/               # Protocol fuzzing (200+ payloads)
 │   ├── supply_chain/          # Supply chain audit (OSV.dev + parsers)
-│   ├── network/               # Network scanning & topology mapping
 │   ├── crypto/                # Hash analysis & password entropy scoring
 │   ├── osint/                 # CT logs, typosquat detection, breach lookup
 │   ├── detection/             # MITRE coverage validation, alert latency testing
-    └── exploit/               # CVE mapping, exploit verification & attack graphs
+│   └── exploit/               # CVE mapping, exploit verification & attack graphs
 ├── data/
 │   ├── cve_cache.json         # Local CVE/CPE cache
 │   └── payloads/              # Safe exploit payload library

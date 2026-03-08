@@ -12,7 +12,8 @@ from __future__ import annotations
 import asyncio
 import time
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any
+from pathlib import Path
+from typing import Any
 
 import structlog
 
@@ -27,9 +28,6 @@ from redcheck.exceptions import (
     RoEValidationError,
     ScanTimeoutError,
 )
-
-if TYPE_CHECKING:
-    from pathlib import Path
 from redcheck.models import EngagementContext, PluginCapability, RuntimeMode
 from redcheck.plugins.base_plugin import PluginRegistry, PluginResult
 
@@ -77,10 +75,11 @@ def _is_capability_allowed(mode: RuntimeMode, capability: PluginCapability) -> b
 class Orchestrator:
     """Central orchestrator for RedCheck engagements."""
 
-    def __init__(self) -> None:
+    def __init__(self, *, signature_verifier: Any | None = None) -> None:
         self.policy = get_policy_engine()
         self.audit = get_audit_logger()
         self._current_engagement: EngagementContext | None = None
+        self._signature_verifier = signature_verifier
 
     @property
     def current_engagement(self) -> EngagementContext | None:
@@ -94,7 +93,9 @@ class Orchestrator:
 
         Raises ``PolicyDeniedException`` if the RoE is invalid.
         """
-        valid, message, roe_data = self.policy.validate_roe(roe_path)
+        valid, message, roe_data = self.policy.validate_roe(
+            roe_path, verifier=self._signature_verifier
+        )
 
         if not valid:
             log.error("engagement_load_failed", reason=message)
@@ -144,10 +145,14 @@ class Orchestrator:
         """Execute a plugin within the current engagement context (sync)."""
         plugin = PluginRegistry.get_instance(plugin_name)
         if plugin is None:
+            suggestions = PluginRegistry.suggest(plugin_name)
+            hint = ""
+            if suggestions:
+                hint = f" Did you mean: {', '.join(suggestions)}?"
             return PluginResult(
                 plugin_name=plugin_name,
                 success=False,
-                errors=[f"Plugin '{plugin_name}' not found in registry"],
+                errors=[f"Plugin '{plugin_name}' not found in registry.{hint}"],
             )
 
         context: dict[str, Any] = {}
@@ -159,6 +164,12 @@ class Orchestrator:
                 "safety_mode",
                 "authorized-active" if context.get("activation_verified") else "dry-run",
             )
+            # Derive evidence_dir from roe_path so plugins can write artefacts.
+            roe_p = self._current_engagement.roe_path
+            if roe_p:
+                roe_parent = Path(roe_p).resolve().parent
+                context.setdefault("evidence_dir", str(roe_parent / "evidence"))
+                context.setdefault("reports_dir", str(roe_parent / "reports"))
         if extra_context:
             context.update(extra_context)
 
@@ -464,5 +475,5 @@ def _build_engagement_from_roe(roe_data: dict[str, Any], roe_path: str) -> Engag
         end_time_utc=_parse_time(roe_data.get("end_time_utc", datetime.now(timezone.utc))),
         sensitivity=str(roe_data.get("sensitivity", "standard")),
         roe_path=roe_path,
-        roe_signed=True,
+        roe_signed=bool(roe_data.get("signature")),
     )
