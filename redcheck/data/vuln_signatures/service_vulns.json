@@ -1,0 +1,126 @@
+{
+  "schema_version": "1.0.0",
+  "description": "Service vulnerability signature database for RedCheck246",
+  "vulnerabilities": [
+    {
+      "id": "SVC-001",
+      "service": "OpenSSH",
+      "affected_versions": ["7.0", "7.1", "7.2", "7.3", "7.4"],
+      "cve": "CVE-2016-10009",
+      "severity": "high",
+      "cwe": "CWE-284",
+      "description": "OpenSSH agent forwarding arbitrary library loading",
+      "cpe_match": "cpe:2.3:a:openbsd:openssh:7.*"
+    },
+    {
+      "id": "SVC-002",
+      "service": "Apache HTTP Server",
+      "affected_versions": ["2.4.49"],
+      "cve": "CVE-2021-41773",
+      "severity": "critical",
+      "cwe": "CWE-22",
+      "description": "Path traversal and RCE via crafted URL in Apache 2.4.49",
+      "cpe_match": "cpe:2.3:a:apache:http_server:2.4.49"
+    },
+    {
+      "id": "SVC-003",
+      "service": "Nginx",
+      "affected_versions": ["1.20.0", "1.18.0", "1.19.0"],
+      "cve": "CVE-2021-23017",
+      "severity": "high",
+      "cwe": "CWE-193",
+      "description": "DNS resolver off-by-one heap write in Nginx",
+      "cpe_match": "cpe:2.3:a:f5:nginx:1.2*"
+    },
+    {
+      "id": "SVC-004",
+      "service": "Redis",
+      "affected_versions": ["6.0.0", "6.2.0", "6.2.6"],
+      "cve": "CVE-2022-24735",
+      "severity": "high",
+      "cwe": "CWE-94",
+      "description": "Lua script sandbox escape in Redis",
+      "cpe_match": "cpe:2.3:a:redis:redis:6.*"
+    },
+    {
+      "id": "SVC-005",
+      "service": "MySQL",
+      "affected_versions": ["8.0.28", "5.7.37"],
+      "cve": "CVE-2022-21417",
+      "severity": "medium",
+      "cwe": "CWE-284",
+      "description": "MySQL Server InnoDB privilege escalation",
+      "cpe_match": "cpe:2.3:a:oracle:mysql:8.0.*"
+    },
+    {
+      "id": "SVC-006",
+      "service": "PostgreSQL",
+      "affected_versions": ["14.2", "13.6", "12.10"],
+      "cve": "CVE-2022-1552",
+      "severity": "high",
+      "cwe": "CWE-264",
+      "description": "Autovacuum and REINDEX privilege escalation in PostgreSQL",
+      "cpe_match": "cpe:2.3:a:postgresql:postgresql:14.*"
+    },
+    {
+      "id": "SVC-007",
+      "service": "Elasticsearch",
+      "affected_versions": ["7.16.1", "7.16.0"],
+      "cve": "CVE-2021-44228",
+      "severity": "critical",
+      "cwe": "CWE-502",
+      "description": "Log4Shell RCE via JNDI lookup in Elasticsearch (Log4j dependency)",
+      "cpe_match": "cpe:2.3:a:elastic:elasticsearch:7.16.*"
+    },
+    {
+      "id": "SVC-008",
+      "service": "vsftpd",
+      "affected_versions": ["2.3.4"],
+      "cve": "CVE-2011-2523",
+      "severity": "critical",
+      "cwe": "CWE-78",
+      "description": "vsftpd 2.3.4 backdoor command execution",
+      "cpe_match": "cpe:2.3:a:vsftpd_project:vsftpd:2.3.4"
+    },
+    {
+      "id": "SVC-009",
+      "service": "Jenkins",
+      "affected_versions": ["2.319", "2.318"],
+      "cve": "CVE-2022-20612",
+      "severity": "high",
+      "cwe": "CWE-352",
+      "description": "CSRF vulnerability in Jenkins build triggers",
+      "cpe_match": "cpe:2.3:a:jenkins:jenkins:2.31*"
+    },
+    {
+      "id": "SVC-010",
+      "service": "Apache Tomcat",
+      "affected_versions": ["9.0.50", "10.0.6"],
+      "cve": "CVE-2021-42340",
+      "severity": "high",
+      "cwe": "CWE-772",
+      "description": "DoS via memory leak in Apache Tomcat WebSocket connections",
+      "cpe_match": "cpe:2.3:a:apache:tomcat:9.0.*"
+    },
+    {
+      "id": "SVC-011",
+      "service": "Samba SMB",
+      "affected_versions": ["4.15.0", "4.14.0"],
+      "cve": "CVE-2021-44142",
+      "severity": "critical",
+      "cwe": "CWE-787",
+      "description": "Heap out-of-bounds write in Samba VFS module",
+      "cpe_match": "cpe:2.3:a:samba:samba:4.1*"
+    },
+    {
+      "id": "SVC-012",
+      "service": "HAProxy",
+      "affected_versions": ["2.0.0", "2.1.0", "2.2.0"],
+      "cve": "CVE-2021-40346",
+      "severity": "high",
+      "cwe": "CWE-444",
+      "description": "HTTP request smuggling in HAProxy",
+      "cpe_match": "cpe:2.3:a:haproxy:haproxy:2.*"
+    }
+  ]
+}

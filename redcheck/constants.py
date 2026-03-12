@@ -117,3 +117,45 @@ RBAC_ACTIONS: tuple[str, ...] = (
 # ── Metrics ──────────────────────────────────────────────────────
 METRICS_ROTATION_DAYS_DEFAULT: int = 1
 METRICS_TABLE_NAME: str = "metrics_ts"
+
+# ── OTP ──────────────────────────────────────────────────────────
+OTP_CODE_LENGTH: int = 6
+OTP_EXPIRY_SECONDS: int = 300
+OTP_MAX_ATTEMPTS: int = 3
+OTP_COOLDOWN_SECONDS: int = 2
+
+# ── Test Mode ────────────────────────────────────────────────────
+TEST_MODE_MAX_PIPELINE_PLUGINS: int = 30
+TEST_MODE_DEFAULT_CHAIN: bool = False
+
+# ── Evidence Index ───────────────────────────────────────────────
+EVIDENCE_INDEX_VERSION: str = "1.0.0"
+MAX_FINDINGS_PER_PLUGIN: int = 10000
+MAX_EVIDENCE_PER_PLUGIN: int = 100
+
+# ── Container Analysis ───────────────────────────────────────────
+CONTAINER_DOCKER_TIMEOUT_SECONDS: int = 10
+CONTAINER_MAX_INSPECT: int = 50
+
+# ── Network Discovery (§25) ──────────────────────────────────────
+UDP_PROBE_TIMEOUT_SECONDS: float = 2.0
+ARP_SCAN_TIMEOUT_SECONDS: float = 5.0
+MAX_DISCOVERY_HOSTS: int = 1024
+UDP_DEFAULT_PORTS: list[int] = [53, 67, 123, 161, 500, 1900, 5353]
+ICMP_FALLBACK_TIMEOUT_SECONDS: float = 1.0
+
+# ── Crawler Enhancement (§26) ────────────────────────────────────
+CRAWLER_MAX_FORMS_PER_PAGE: int = 50
+CRAWLER_MAX_API_PATHS: int = 500
+
+# ── Vulnerability Database (§28) ─────────────────────────────────
+VULN_DB_SCHEMA_VERSION: str = "1.0.0"
+MAX_INJECTION_PAYLOADS_PER_CATEGORY: int = 50
+MAX_VULN_MATCHES_PER_SERVICE: int = 100
+
+# ── Target Identity Validation (§34) ─────────────────────────────
+TARGET_IDENTITY_ENABLED: bool = True
+TARGET_IDENTITY_STRICT_MODE: bool = False
+TARGET_IDENTITY_MIN_CONFIDENCE: float = 0.7
+TARGET_IDENTITY_TLS_TIMEOUT_SECONDS: float = 5.0
+TARGET_IDENTITY_DNS_TIMEOUT_SECONDS: float = 3.0

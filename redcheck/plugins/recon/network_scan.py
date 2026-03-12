@@ -14,7 +14,9 @@ from __future__ import annotations
 
 import asyncio
 import importlib.resources
+import json
 import time
+from dataclasses import dataclass, field
 from typing import Any
 
 import structlog
@@ -58,6 +60,23 @@ def _get_fingerprints() -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# Service fingerprint result
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class ServiceFingerprint:
+    """Enriched service fingerprint with CPE and CVE data."""
+
+    service: str
+    version: str | None = None
+    cpe: str | None = None
+    raw_banner: str = ""
+    matched_cves: list[str] = field(default_factory=list)
+    confidence: float = 0.0
+
+
+# ---------------------------------------------------------------------------
 # Service version detection
 # ---------------------------------------------------------------------------
 
@@ -71,6 +90,7 @@ class ServiceVersionDetector:
         self._port_defaults: dict[int, str] = {
             int(k): v for k, v in db.get("port_defaults", {}).items()
         }
+        self._service_versions: dict[str, Any] | None = None
 
     def detect(self, banner: str, port: int | None = None) -> tuple[str, float]:
         """Identify service from banner string.
@@ -100,6 +120,63 @@ class ServiceVersionDetector:
             return self._port_defaults[port], 0.3
 
         return "unknown", 0.0
+
+    def detect_fingerprint(self, banner: str, port: int | None = None) -> ServiceFingerprint:
+        """Detect service and return enriched fingerprint with CPE."""
+        service_name, confidence = self.detect(banner, port)
+
+        cpe: str | None = None
+        for fp in self._fingerprints:
+            if fp.get("service", "").lower() == service_name.lower():
+                cpe = fp.get("cpe")
+                break
+
+        return ServiceFingerprint(
+            service=service_name,
+            cpe=cpe,
+            raw_banner=banner,
+            confidence=confidence,
+        )
+
+    def correlate_cves(
+        self,
+        service_name: str,
+        version: str | None = None,
+    ) -> list[str]:
+        """Correlate a service name and version against known CVEs.
+
+        Uses ``service_versions.json`` to find matching CVEs.
+
+        Returns:
+            List of CVE identifiers.
+        """
+        if self._service_versions is None:
+            self._service_versions = self._load_service_versions()
+
+        services = self._service_versions.get("services", {})
+        svc_data = services.get(service_name, {})
+        versions = svc_data.get("versions", {})
+
+        if version and version in versions:
+            return versions[version].get("cves", [])
+
+        # If no specific version, return all CVEs for the service
+        all_cves: list[str] = []
+        for v_data in versions.values():
+            for cve in v_data.get("cves", []):
+                if cve not in all_cves:
+                    all_cves.append(cve)
+        return all_cves
+
+    @staticmethod
+    def _load_service_versions() -> dict[str, Any]:
+        """Load service_versions.json from package data."""
+        try:
+            ref = importlib.resources.files("redcheck.data").joinpath("service_versions.json")
+            return json.loads(ref.read_text(encoding="utf-8"))
+        except Exception:
+            log.warning("service_versions_load_failed", exc_info=True)
+            return {}
 
 
 # ---------------------------------------------------------------------------

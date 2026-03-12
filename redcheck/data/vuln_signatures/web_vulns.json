@@ -1,0 +1,140 @@
+{
+  "schema_version": "1.0.0",
+  "description": "Web vulnerability signature database for RedCheck246",
+  "vulnerabilities": [
+    {
+      "id": "WEB-001",
+      "name": "Reflected XSS",
+      "category": "xss",
+      "severity": "high",
+      "cwe": "CWE-79",
+      "patterns": [
+        "<script>alert(",
+        "javascript:",
+        "onerror=",
+        "onload=",
+        "<img src=x onerror="
+      ],
+      "detection_regex": "<script[^>]*>|javascript:|on(error|load|click|mouseover)\\s*=",
+      "description": "Reflected cross-site scripting via unescaped user input in HTML response"
+    },
+    {
+      "id": "WEB-002",
+      "name": "Stored XSS",
+      "category": "xss",
+      "severity": "high",
+      "cwe": "CWE-79",
+      "patterns": [
+        "<svg onload=",
+        "<body onload=",
+        "<iframe src="
+      ],
+      "detection_regex": "<(svg|body|iframe)[^>]*(onload|src)\\s*=",
+      "description": "Stored cross-site scripting via persistent user input"
+    },
+    {
+      "id": "WEB-003",
+      "name": "CSRF Missing Token",
+      "category": "csrf",
+      "severity": "medium",
+      "cwe": "CWE-352",
+      "patterns": [],
+      "detection_regex": "<form[^>]*method=[\"']post[\"'][^>]*>(?!.*csrf|.*_token|.*authenticity)",
+      "description": "POST form missing CSRF protection token"
+    },
+    {
+      "id": "WEB-004",
+      "name": "Open Redirect",
+      "category": "redirect",
+      "severity": "medium",
+      "cwe": "CWE-601",
+      "patterns": [
+        "redirect=",
+        "url=",
+        "next=",
+        "return_to=",
+        "returnUrl="
+      ],
+      "detection_regex": "(redirect|url|next|return_to|returnUrl|goto)=https?://",
+      "description": "Unvalidated redirect parameter allowing redirection to external domains"
+    },
+    {
+      "id": "WEB-005",
+      "name": "Server-Side Request Forgery",
+      "category": "ssrf",
+      "severity": "critical",
+      "cwe": "CWE-918",
+      "patterns": [
+        "url=http://127.0.0.1",
+        "url=http://localhost",
+        "url=http://169.254.169.254"
+      ],
+      "detection_regex": "url=https?://(127\\.0\\.0\\.1|localhost|169\\.254\\.169\\.254|0\\.0\\.0\\.0)",
+      "description": "Server-side request forgery via URL parameter targeting internal services"
+    },
+    {
+      "id": "WEB-006",
+      "name": "Directory Traversal",
+      "category": "traversal",
+      "severity": "high",
+      "cwe": "CWE-22",
+      "patterns": [
+        "../",
+        "..\\",
+        "%2e%2e%2f",
+        "%2e%2e/"
+      ],
+      "detection_regex": "(\\.\\./|\\.\\.\\\\|%2e%2e(%2f|/))",
+      "description": "Path traversal via dot-dot-slash sequences in file parameters"
+    },
+    {
+      "id": "WEB-007",
+      "name": "Information Disclosure via Headers",
+      "category": "info_disclosure",
+      "severity": "low",
+      "cwe": "CWE-200",
+      "patterns": [
+        "X-Powered-By:",
+        "Server:",
+        "X-AspNet-Version:"
+      ],
+      "detection_regex": "(X-Powered-By|Server|X-AspNet-Version|X-AspNetMvc-Version):",
+      "description": "Server version information disclosed via HTTP response headers"
+    },
+    {
+      "id": "WEB-008",
+      "name": "Insecure Cookie",
+      "category": "cookie",
+      "severity": "medium",
+      "cwe": "CWE-614",
+      "patterns": [],
+      "detection_regex": "Set-Cookie:(?!.*Secure)(?!.*HttpOnly)",
+      "description": "Session cookie missing Secure or HttpOnly flags"
+    },
+    {
+      "id": "WEB-009",
+      "name": "Clickjacking",
+      "category": "framing",
+      "severity": "medium",
+      "cwe": "CWE-1021",
+      "patterns": [],
+      "detection_regex": "",
+      "description": "Missing X-Frame-Options or Content-Security-Policy frame-ancestors header"
+    },
+    {
+      "id": "WEB-010",
+      "name": "HTTP Method Tampering",
+      "category": "method",
+      "severity": "medium",
+      "cwe": "CWE-650",
+      "patterns": [
+        "TRACE",
+        "PUT",
+        "DELETE",
+        "OPTIONS"
+      ],
+      "detection_regex": "",
+      "description": "Dangerous HTTP methods enabled (TRACE, PUT, DELETE)"
+    }
+  ]
+}

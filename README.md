@@ -7,7 +7,7 @@
 [![CI](https://github.com/SERVER-246/RedCheck246/actions/workflows/ci.yml/badge.svg)](https://github.com/SERVER-246/RedCheck246/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/SERVER-246/RedCheck246/actions/workflows/codeql.yml/badge.svg)](https://github.com/SERVER-246/RedCheck246/actions/workflows/codeql.yml)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/tests-1341%20passing-brightgreen.svg)](#)
+[![Tests](https://img.shields.io/badge/tests-1666%20passing-brightgreen.svg)](#)
 [![Coverage](https://img.shields.io/badge/coverage-93%25-brightgreen.svg)](#)
 [![Mutation](https://img.shields.io/badge/mutation%20score-95%25-brightgreen.svg)](#)
 [![License](https://img.shields.io/badge/license-Proprietary-red.svg)](LICENSE)
@@ -38,7 +38,7 @@ RoE Signature → Activation Code → Runtime Mode Check → Offensive Controls 
 - **Rate limiting** — Token bucket with configurable hard caps (never exceed `constants.py`)
 
 ### 🔌 Plugin Architecture
-- **18 plugins across 10 categories** — Recon, SAST, DAST, fuzzing, supply chain, network scanning, crypto analysis, OSINT, exploit verification, detection validation
+- **23 plugins across 10 categories** — Recon, SAST, DAST, fuzzing, supply chain, network scanning, crypto analysis, OSINT, exploit verification, detection validation
 - **Auto-discovery** — Plugins register via `__init_subclass__` with `pkgutil.walk_packages` package scanning
 - **Fuzzy name matching** — Misspelled plugin names return ranked suggestions via `difflib.get_close_matches`
 - **Lifecycle hooks** — `setup()`, `execute()`, `teardown()`, `health_check()`, `dry_run()`
@@ -71,6 +71,21 @@ RoE Signature → Activation Code → Runtime Mode Check → Offensive Controls 
 - **Encrypted audit export** — AES-256-GCM encrypted audit trail export/import with tamper detection
 - **SBOM generation** — SPDX 2.3 JSON software bill of materials
 
+### 🧪 Test Mode & Pipeline (Phase 6)
+- **OTP-gated execution** — TOTP one-time password gate for DESTRUCTIVE plugins with email delivery
+- **Plugin pipeline chaining** — Upstream findings flow to downstream plugins via `upstream_findings`
+- **Evidence indexing** — SHA-256 hashed evidence store with integrity verification
+- **Attack path correlation** — Pipeline findings correlated into attack graphs with severity ranking
+- **Dry-run mode** — All plugins support `dry_run()` for side-effect-free analysis
+- **Backward compatible** — All existing `redcheck run` / `redcheck run-all` commands unchanged
+
+### 🔎 Data Infrastructure & Validation (Phase 7)
+- **Internal network discovery** — ARP scan, UDP probe, OS fingerprinting with scope enforcement
+- **Advanced web crawling** — API spec discovery, form enumeration, login flow detection, parameter mapping
+- **Vulnerability signature database** — Lazy-loaded JSON signature files for web, service, and injection vulns
+- **Service fingerprinting** — 120+ patterns with CPE identifiers and CVE correlation
+- **Target identity validation** — TLS certificate, DNS consistency, and ownership checks before engagement
+
 ### 🔐 Cryptographic Security
 - **Evidence encryption** — AES-256-GCM with PBKDF2-HMAC-SHA512 key derivation
 - **Document signing** — Ed25519 public-key + HMAC-SHA256 dual-mode
@@ -78,10 +93,10 @@ RoE Signature → Activation Code → Runtime Mode Check → Offensive Controls 
 - **Secure scanning** — Shared SSL context with TLS 1.2 minimum for all outbound connections
 
 ### 📊 Developer Experience
-- **Rich CLI** — 10 commands with `--output-dir` / `--report-format` flags, Rich tables, banners, JSON export via Typer
+- **Rich CLI** — 12 commands with `--output-dir` / `--report-format` flags, Rich tables, banners, JSON export via Typer
 - **Async-first** — All network plugins use `httpx.AsyncClient`
 - **Docker-ready** — Multi-stage build with non-root user (UID 1000), read-only filesystem
-- **Full test coverage** — 1 341 tests, 93% line coverage, mutation testing (≥95%) across Python 3.10–3.12
+- **Full test coverage** — 1 666 tests, 93% line coverage, mutation testing (≥95%) across Python 3.10–3.13
 
 ## Quick Start
 
@@ -144,46 +159,64 @@ redcheck status
 | `exploit-verifier` | Exploit | DESTRUCTIVE | T1203, T1190 | Safe exploit validation with sandbox isolation and rollback verification |
 | `detection-coverage` | Detection | ACTIVE | T1562.001 | MITRE ATT&CK coverage validation with 21-technique catalog and gap analysis |
 | `alert-latency` | Detection | ACTIVE | T1562.006 | Alert pipeline latency measurement with SLA thresholds and p95 stats |
+| `persistence-validator` | Detection | ACTIVE | T1547, T1053 | Persistence mechanism detection with registry, cron, and service enumeration |
+| `detection-response-recorder` | Detection | ACTIVE | T1562 | Detection response recording with alert correlation and timeline reconstruction |
+| `container-analyzer` | Recon | ACTIVE | T1610, T1613 | Docker/OCI container security analysis — image scanning, config audit |
+| `lateral-movement-analyzer` | Recon | ACTIVE | T1021, T1570 | Lateral movement path analysis with credential relay and pivot detection |
+| `network-discovery` | Recon | ACTIVE | T1046, T1018 | Internal network discovery via ARP scan, UDP probe, OS fingerprinting |
 
 ## Architecture
 
 ```
 redcheck/
-├── cli.py                     # Typer CLI (10 commands)
+├── cli.py                     # Typer CLI (12 commands)
 ├── config.py                  # Pydantic v2 BaseSettings (REDCHECK_ env prefix)
-├── exceptions.py              # 11 custom exception classes
-├── models.py                  # 7 enums + 8 Pydantic v2 models
+├── constants.py               # Immutable hard-cap constants
+├── exceptions.py              # 23 custom exception classes
+├── models.py                  # 6 enums + 10 Pydantic v2 models
 ├── output.py                  # Rich terminal formatting
 ├── logging.py                 # structlog JSON configuration
 ├── core/
-│   ├── audit.py               # AES-256-GCM encrypted hash-chained audit
-│   ├── orchestrator.py        # Engagement lifecycle + plugin dispatch
-│   ├── policy_engine.py       # Central policy gate (RoE × mode × capability)
 │   ├── activation_engine.py   # Argon2id activation code management
-│   ├── rate_limiter.py        # Token-bucket rate limiting
+│   ├── attack_path_correlator.py  # Finding → attack graph correlation
+│   ├── audit.py               # AES-256-GCM encrypted hash-chained audit
+│   ├── audit_export.py        # AES-256-GCM encrypted audit export/import
+│   ├── evidence_store.py      # SHA-256 indexed evidence with integrity verification
 │   ├── metrics.py             # Prometheus-compatible metrics collector
 │   ├── multi_tenant.py        # Per-tenant filesystem isolation
+│   ├── network_guard.py       # Outbound scope validation with anti-pivot
+│   ├── orchestrator.py        # Engagement lifecycle + plugin dispatch
+│   ├── otp_engine.py          # TOTP one-time password gate
+│   ├── pipeline.py            # Plugin pipeline chaining engine
+│   ├── policy_engine.py       # Central policy gate (RoE × mode × capability)
 │   ├── rbac.py                # 5-role × 6-action RBAC permission matrix
 │   ├── reporting.py           # JSON/PDF/HTML report generation + Ed25519 signing
-│   ├── report_adapter.py      # Plugin result → ScanReport bridge for report export
-│   ├── audit_export.py        # AES-256-GCM encrypted audit export/import
+│   ├── report_adapter.py      # Plugin result → ScanReport bridge
 │   ├── sbom_integration.py    # SPDX 2.3 SBOM generation
+│   ├── scope_validator.py     # CIDR-aware in-scope validation
+│   ├── target_validator.py    # Pre-flight TLS/DNS identity verification
+│   ├── test_mode.py           # Test mode runtime support
+│   ├── token_bucket.py        # Token-bucket rate limiting
+│   ├── topology.py            # Network topology graph engine
+│   ├── vuln_db.py             # Lazy-loaded vulnerability signature database
 │   └── report_templates/      # Jinja2 report templates (executive, technical, compliance)
-├── plugins/
+├── plugins/                   # 23 auto-registered plugins
 │   ├── _http.py               # Shared SSL context (scanning_ssl_context)
 │   ├── base_plugin.py         # BasePlugin ABC + PluginRegistry
-│   ├── recon/                 # Passive reconnaissance (7 async modules)
+│   ├── recon/                 # Passive recon, network scanning, network discovery
 │   ├── sast/                  # Static analysis (bandit + regex)
-│   ├── dast/                  # Dynamic analysis (6 async modules)
+│   ├── dast/                  # Dynamic analysis, web crawling, auth/injection testing
 │   ├── fuzzing/               # Protocol fuzzing (200+ payloads)
 │   ├── supply_chain/          # Supply chain audit (OSV.dev + parsers)
 │   ├── crypto/                # Hash analysis & password entropy scoring
 │   ├── osint/                 # CT logs, typosquat detection, breach lookup
-│   ├── detection/             # MITRE coverage validation, alert latency testing
+│   ├── detection/             # MITRE coverage, alert latency, persistence, response
 │   └── exploit/               # CVE mapping, exploit verification & attack graphs
 ├── data/
-│   ├── cve_cache.json         # Local CVE/CPE cache
-│   └── payloads/              # Safe exploit payload library
+│   ├── safe_poc_library.json  # Safe exploit PoC payloads
+│   ├── service_fingerprints.yaml  # 120+ service fingerprint patterns with CPE
+│   ├── service_versions.json  # Service+version → CVE mapping
+│   └── vuln_signatures/       # Web, service, and injection vulnerability signatures
 └── security/
     ├── crypto.py              # AES-256-GCM, PBKDF2, HMAC, hashing
     ├── roe_validator.py       # YAML structure + time window validation
@@ -212,6 +245,8 @@ redcheck/
 | `CI` | ✅ | ❌ | ❌ | Continuous integration |
 | `STAGING` | ✅ | ✅ | ❌ | Pre-production validation |
 | `PRODUCTION` | ✅ | ✅ | ❌ | Live assessments |
+| `RESEARCH` | ✅ | ✅ | ✅ (gated) | Isolated research labs |
+| `TEST` | ✅ | ✅ | ✅ (OTP-gated) | Test mode with full pipeline |
 
 ## Roadmap
 
@@ -225,6 +260,8 @@ RedCheck246 follows a phased development approach. See [next_phase_execution_pla
 | ✅ Phase 3 | Attack graph — path analysis, kill-chain, attacker-class scoping | v0.3.0-rc2 |
 | ✅ Phase 4 | Detection validation — MITRE coverage, alert latency | v0.3.0-rc3 |
 | ✅ Phase 5 | Commercial readiness — multi-tenant, RBAC, reporting, SBOM | v0.3.0 GA |
+| ✅ Phase 6 | Integration testing — end-to-end pipeline, backward compat | v0.3.1-rc1 |
+| ✅ Phase 7 | Data infrastructure — vuln DB, network discovery, target validation | v0.3.1-rc2 |
 
 ## Development
 
@@ -270,7 +307,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the full developer guide. All contrib
 - `ruff format --check` — zero formatting diffs
 - `mypy --strict` — zero errors
 - `bandit` — zero CRITICAL/HIGH findings
-- `pytest` — all 1 341 tests passing, ≥93% line coverage
+- `pytest` — all 1 666 tests passing, ≥93% line coverage
 - `mutmut` — ≥95% mutation score on core modules
 - CodeQL — zero open findings
 

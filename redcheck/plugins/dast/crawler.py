@@ -9,13 +9,19 @@ from __future__ import annotations
 import re
 import time
 from collections import deque
+from dataclasses import dataclass, field
 from typing import Any
 from urllib.parse import urljoin, urlparse
 
 import httpx
 import structlog
 
-from redcheck.constants import CRAWLER_MAX_DEPTH_DEFAULT, CRAWLER_MAX_PAGES_DEFAULT
+from redcheck.constants import (
+    CRAWLER_MAX_API_PATHS,
+    CRAWLER_MAX_DEPTH_DEFAULT,
+    CRAWLER_MAX_FORMS_PER_PAGE,
+    CRAWLER_MAX_PAGES_DEFAULT,
+)
 from redcheck.core.token_bucket import TokenBucket
 from redcheck.plugins._http import scanning_ssl_context
 
@@ -23,6 +29,47 @@ log = structlog.get_logger(__name__)
 
 _LINK_RE = re.compile(r'href=["\']([^"\']+)["\']', re.IGNORECASE)
 _FORM_ACTION_RE = re.compile(r"<form[^>]*action=[\"']([^\"']*)[\"'][^>]*>", re.IGNORECASE)
+_FORM_RE = re.compile(r"<form[^>]*>(.*?)</form>", re.IGNORECASE | re.DOTALL)
+_INPUT_NAME_RE = re.compile(r"name=[\"']([^\"']*)[\"']", re.IGNORECASE)
+_INPUT_TYPE_RE = re.compile(r"type=[\"']([^\"']*)[\"']", re.IGNORECASE)
+_INPUT_TAG_RE = re.compile(r"<input[^>]*?>", re.IGNORECASE)
+_TEXTAREA_RE = re.compile(r"<textarea[^>]*name=[\"']([^\"']*)[\"'][^>]*>", re.IGNORECASE)
+_SELECT_RE = re.compile(r"<select[^>]*name=[\"']([^\"']*)[\"'][^>]*>", re.IGNORECASE)
+_API_SPEC_PATHS = (
+    "/openapi.json",
+    "/openapi.yaml",
+    "/swagger.json",
+    "/swagger.yaml",
+    "/api-docs",
+    "/v1/openapi.json",
+    "/v2/openapi.json",
+    "/v3/openapi.json",
+    "/api/openapi.json",
+    "/api/swagger.json",
+    "/.well-known/openapi.json",
+)
+_LOGIN_INDICATORS = re.compile(
+    r"(login|signin|sign-in|authenticate|auth|log-in|sso)",
+    re.IGNORECASE,
+)
+_FILE_UPLOAD_RE = re.compile(r'type=["\']file["\']', re.IGNORECASE)
+
+
+# ---------------------------------------------------------------------------
+# Data classes for enhanced crawl results
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class FormDescriptor:
+    """Describes a discovered HTML form."""
+
+    page_url: str
+    action: str
+    method: str
+    fields: list[dict[str, str]] = field(default_factory=list)
+    has_file_upload: bool = False
+    is_login_form: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -228,3 +275,159 @@ class AdvancedCrawler:
     @property
     def visited_urls(self) -> set[str]:
         return self._visited.copy()
+
+    # ------------------------------------------------------------------
+    # Enhanced discovery methods (Phase 7 — §26)
+    # ------------------------------------------------------------------
+
+    async def discover_api_specs(
+        self,
+        base_url: str,
+        client: httpx.AsyncClient | None = None,
+    ) -> list[dict[str, Any]]:
+        """Probe well-known paths for OpenAPI / Swagger specs.
+
+        Returns list of dicts with ``url``, ``status``, ``content_type``.
+        """
+        own_client = client is None
+        if own_client:
+            client = httpx.AsyncClient(verify=scanning_ssl_context(), timeout=10.0)
+
+        results: list[dict[str, Any]] = []
+        try:
+            for path in _API_SPEC_PATHS:
+                if len(results) >= CRAWLER_MAX_API_PATHS:
+                    break
+                url = urljoin(base_url, path)
+                try:
+                    resp = await client.get(url, follow_redirects=True, timeout=5.0)
+                    if resp.status_code == 200:
+                        ct = resp.headers.get("content-type", "")
+                        results.append(
+                            {
+                                "url": url,
+                                "status": resp.status_code,
+                                "content_type": ct,
+                                "finding_type": "api_spec_discovered",
+                            }
+                        )
+                except Exception:
+                    pass
+        finally:
+            if own_client:
+                await client.aclose()
+
+        return results
+
+    def enumerate_forms(self, url: str, html: str) -> list[FormDescriptor]:
+        """Parse HTML and extract all form descriptors.
+
+        Args:
+            url: The page URL (used for resolving relative actions).
+            html: Raw HTML content of the page.
+
+        Returns:
+            List of ``FormDescriptor`` objects, capped at
+            ``CRAWLER_MAX_FORMS_PER_PAGE``.
+        """
+        forms: list[FormDescriptor] = []
+
+        for match in _FORM_RE.finditer(html):
+            if len(forms) >= CRAWLER_MAX_FORMS_PER_PAGE:
+                break
+
+            form_html = match.group(0)
+
+            # Extract action
+            action_match = _FORM_ACTION_RE.search(form_html)
+            raw_action = action_match.group(1) if action_match else ""
+            action = urljoin(url, raw_action) if raw_action else url
+
+            # Extract method
+            method_match = re.search(r"method=[\"'](\w+)[\"']", form_html, re.IGNORECASE)
+            method = method_match.group(1).upper() if method_match else "GET"
+
+            # Extract fields
+            fields: list[dict[str, str]] = []
+            for inp in _INPUT_TAG_RE.finditer(form_html):
+                tag = inp.group(0)
+                name_m = _INPUT_NAME_RE.search(tag)
+                type_m = _INPUT_TYPE_RE.search(tag)
+                name = name_m.group(1) if name_m else ""
+                input_type = type_m.group(1) if type_m else "text"
+                if name:
+                    fields.append({"name": name, "type": input_type})
+            for ta in _TEXTAREA_RE.finditer(form_html):
+                fields.append({"name": ta.group(1), "type": "textarea"})
+            for sel in _SELECT_RE.finditer(form_html):
+                fields.append({"name": sel.group(1), "type": "select"})
+
+            has_upload = bool(_FILE_UPLOAD_RE.search(form_html))
+            is_login = bool(_LOGIN_INDICATORS.search(form_html))
+
+            forms.append(
+                FormDescriptor(
+                    page_url=url,
+                    action=action,
+                    method=method,
+                    fields=fields,
+                    has_file_upload=has_upload,
+                    is_login_form=is_login,
+                )
+            )
+
+        return forms
+
+    def discover_login_flows(self, crawled_urls: list[str]) -> list[dict[str, Any]]:
+        """Identify likely login/authentication URLs from crawled pages.
+
+        Uses URL-path heuristics (login, signin, auth, sso) to detect
+        authentication endpoints.
+        """
+        login_flows: list[dict[str, Any]] = []
+        seen: set[str] = set()
+
+        for url in crawled_urls:
+            parsed = urlparse(url)
+            path = parsed.path.lower()
+            if _LOGIN_INDICATORS.search(path) and url not in seen:
+                seen.add(url)
+                login_flows.append(
+                    {
+                        "url": url,
+                        "finding_type": "login_flow_detected",
+                        "path": parsed.path,
+                    }
+                )
+
+        return login_flows
+
+    def map_parameters(self, crawled_urls: list[str]) -> list[dict[str, Any]]:
+        """Extract query parameters from crawled URLs.
+
+        Returns list of parameter mappings for fuzz targeting.
+        """
+        param_map: list[dict[str, Any]] = []
+        seen: set[tuple[str, str]] = set()
+
+        for url in crawled_urls:
+            parsed = urlparse(url)
+            if not parsed.query:
+                continue
+            for part in parsed.query.split("&"):
+                if "=" not in part:
+                    continue
+                name = part.split("=", 1)[0]
+                key = (parsed.path, name)
+                if key not in seen:
+                    seen.add(key)
+                    param_map.append(
+                        {
+                            "url": url,
+                            "path": parsed.path,
+                            "parameter": name,
+                            "finding_type": "parameter_mapped",
+                        }
+                    )
+
+        return param_map

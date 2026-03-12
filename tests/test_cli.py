@@ -108,3 +108,43 @@ class TestVersion:
         result = runner.invoke(app, ["--help"])
         assert result.exit_code == 0
         assert "policy-gated" in result.output.lower() or "redcheck" in result.output.lower()
+
+
+class TestRunAll:
+    """CLI run-all command tests."""
+
+    def test_run_all_dry_run(self, valid_roe_file):
+        result = runner.invoke(app, ["run-all", "--roe", str(valid_roe_file), "--dry-run"])
+        assert result.exit_code == 0
+        assert "Run-All Summary" in result.output
+        assert "Passed:" in result.output
+
+    def test_run_all_shows_plugin_count(self, valid_roe_file):
+        result = runner.invoke(app, ["run-all", "--roe", str(valid_roe_file), "--dry-run"])
+        assert result.exit_code == 0
+        # valid_roe_file has 2 allowed_tests: passive-recon, sast-scanner
+        assert "2" in result.output
+
+    def test_run_all_skips_unregistered_plugin(self, tmp_path):
+        """Plugins not in the registry are counted as skipped."""
+        import yaml
+        from tests.conftest import _make_roe
+
+        roe = _make_roe(tests=["passive-recon", "nonexistent-plugin-xyz"])
+        path = tmp_path / "roe.yaml"
+        with open(path, "w") as f:
+            yaml.dump(roe, f)
+        result = runner.invoke(app, ["run-all", "--roe", str(path), "--dry-run"])
+        assert result.exit_code == 0
+        assert "skipping" in result.output.lower() or "Skipped:" in result.output
+
+    def test_run_all_invalid_roe_exits(self, tmp_path):
+        p = tmp_path / "bad.yaml"
+        p.write_text("engagement_id: INCOMPLETE")
+        result = runner.invoke(app, ["run-all", "--roe", str(p)])
+        assert result.exit_code != 0
+
+    def test_run_all_help(self):
+        result = runner.invoke(app, ["run-all", "--help"])
+        assert result.exit_code == 0
+        assert "allowed_tests" in result.output.lower() or "roe" in result.output.lower()

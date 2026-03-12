@@ -1,0 +1,154 @@
+{
+  "schema_version": "1.0.0",
+  "description": "Service version to CVE mapping database for RedCheck246",
+  "services": {
+    "Apache HTTP Server": {
+      "versions": {
+        "2.4.49": {
+          "cves": ["CVE-2021-41773", "CVE-2021-42013"],
+          "severity": "critical",
+          "cpe": "cpe:2.3:a:apache:http_server:2.4.49:*:*:*:*:*:*:*"
+        },
+        "2.4.50": {
+          "cves": ["CVE-2021-42013"],
+          "severity": "critical",
+          "cpe": "cpe:2.3:a:apache:http_server:2.4.50:*:*:*:*:*:*:*"
+        },
+        "2.4.48": {
+          "cves": ["CVE-2021-36160", "CVE-2021-33193"],
+          "severity": "high",
+          "cpe": "cpe:2.3:a:apache:http_server:2.4.48:*:*:*:*:*:*:*"
+        }
+      }
+    },
+    "Nginx": {
+      "versions": {
+        "1.20.0": {
+          "cves": ["CVE-2021-23017"],
+          "severity": "high",
+          "cpe": "cpe:2.3:a:f5:nginx:1.20.0:*:*:*:*:*:*:*"
+        },
+        "1.18.0": {
+          "cves": ["CVE-2021-23017"],
+          "severity": "high",
+          "cpe": "cpe:2.3:a:f5:nginx:1.18.0:*:*:*:*:*:*:*"
+        }
+      }
+    },
+    "OpenSSH": {
+      "versions": {
+        "8.9": {
+          "cves": ["CVE-2023-38408"],
+          "severity": "high",
+          "cpe": "cpe:2.3:a:openbsd:openssh:8.9:*:*:*:*:*:*:*"
+        },
+        "9.1": {
+          "cves": ["CVE-2023-38408"],
+          "severity": "high",
+          "cpe": "cpe:2.3:a:openbsd:openssh:9.1:*:*:*:*:*:*:*"
+        }
+      }
+    },
+    "MySQL": {
+      "versions": {
+        "8.0.28": {
+          "cves": ["CVE-2022-21417", "CVE-2022-21427"],
+          "severity": "medium",
+          "cpe": "cpe:2.3:a:oracle:mysql:8.0.28:*:*:*:*:*:*:*"
+        },
+        "5.7.37": {
+          "cves": ["CVE-2022-21417"],
+          "severity": "medium",
+          "cpe": "cpe:2.3:a:oracle:mysql:5.7.37:*:*:*:*:*:*:*"
+        }
+      }
+    },
+    "PostgreSQL": {
+      "versions": {
+        "14.2": {
+          "cves": ["CVE-2022-1552"],
+          "severity": "high",
+          "cpe": "cpe:2.3:a:postgresql:postgresql:14.2:*:*:*:*:*:*:*"
+        },
+        "13.6": {
+          "cves": ["CVE-2022-1552"],
+          "severity": "high",
+          "cpe": "cpe:2.3:a:postgresql:postgresql:13.6:*:*:*:*:*:*:*"
+        }
+      }
+    },
+    "Redis": {
+      "versions": {
+        "6.2.6": {
+          "cves": ["CVE-2022-24735", "CVE-2022-24736"],
+          "severity": "high",
+          "cpe": "cpe:2.3:a:redis:redis:6.2.6:*:*:*:*:*:*:*"
+        },
+        "7.0.0": {
+          "cves": ["CVE-2022-35951"],
+          "severity": "high",
+          "cpe": "cpe:2.3:a:redis:redis:7.0.0:*:*:*:*:*:*:*"
+        }
+      }
+    },
+    "Microsoft IIS": {
+      "versions": {
+        "10.0": {
+          "cves": ["CVE-2021-31166"],
+          "severity": "critical",
+          "cpe": "cpe:2.3:a:microsoft:internet_information_services:10.0:*:*:*:*:*:*:*"
+        }
+      }
+    },
+    "Apache Tomcat": {
+      "versions": {
+        "9.0.50": {
+          "cves": ["CVE-2021-42340"],
+          "severity": "high",
+          "cpe": "cpe:2.3:a:apache:tomcat:9.0.50:*:*:*:*:*:*:*"
+        },
+        "10.0.6": {
+          "cves": ["CVE-2021-42340"],
+          "severity": "high",
+          "cpe": "cpe:2.3:a:apache:tomcat:10.0.6:*:*:*:*:*:*:*"
+        }
+      }
+    },
+    "vsftpd": {
+      "versions": {
+        "2.3.4": {
+          "cves": ["CVE-2011-2523"],
+          "severity": "critical",
+          "cpe": "cpe:2.3:a:vsftpd_project:vsftpd:2.3.4:*:*:*:*:*:*:*"
+        }
+      }
+    },
+    "ProFTPD": {
+      "versions": {
+        "1.3.5": {
+          "cves": ["CVE-2015-3306"],
+          "severity": "critical",
+          "cpe": "cpe:2.3:a:proftpd:proftpd:1.3.5:*:*:*:*:*:*:*"
+        }
+      }
+    },
+    "Elasticsearch": {
+      "versions": {
+        "7.16.1": {
+          "cves": ["CVE-2021-44228"],
+          "severity": "critical",
+          "cpe": "cpe:2.3:a:elastic:elasticsearch:7.16.1:*:*:*:*:*:*:*"
+        }
+      }
+    },
+    "Jenkins": {
+      "versions": {
+        "2.319": {
+          "cves": ["CVE-2022-20612", "CVE-2022-20613"],
+          "severity": "high",
+          "cpe": "cpe:2.3:a:jenkins:jenkins:2.319:*:*:*:*:*:*:*"
+        }
+      }
+    }
+  }
+}

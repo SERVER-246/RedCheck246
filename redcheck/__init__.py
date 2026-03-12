@@ -27,6 +27,11 @@ __all__ = [
     "IsolationError",
     "RateLimitExceededError",
     "TenantIsolationError",
+    "OTPError",
+    "OTPExpiredError",
+    "OTPVerificationError",
+    "OTPCancelledError",
+    "PipelineError",
     # Config
     "RedCheckConfig",
     # Models
@@ -48,6 +53,11 @@ from redcheck.exceptions import (
     IsolationError,
     NetworkError,
     OffensiveControlError,
+    OTPCancelledError,
+    OTPError,
+    OTPExpiredError,
+    OTPVerificationError,
+    PipelineError,
     PluginError,
     PluginNotFoundError,
     PolicyDeniedException,

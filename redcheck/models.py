@@ -27,6 +27,7 @@ class RuntimeMode(str, enum.Enum):
     STAGING = "staging"
     PRODUCTION = "production"
     RESEARCH = "research"
+    TEST = "test"
 
 
 class PluginCapability(str, enum.Enum):
@@ -204,6 +205,7 @@ class EngagementContext(BaseModel):
     runtime_mode: RuntimeMode = RuntimeMode.DEV
     session_id: str | None = None
     attacker_class: AttackerClass | None = None
+    otp_email: str | None = None
 
     @field_validator("authorizer")
     @classmethod
@@ -260,6 +262,7 @@ class EngagementContext(BaseModel):
             end_time_utc=data.get("end_time_utc", datetime.now(timezone.utc)),
             sensitivity=data.get("sensitivity", "standard"),
             roe_path=str(path),
+            otp_email=data.get("otp_email"),
         )
 
 

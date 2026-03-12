@@ -1,134 +1,580 @@
 # RedCheck246 — Service Fingerprint Database
 # Used by NetworkScanner.detect_service() for banner matching.
 # Format: pattern → service name. Patterns are case-insensitive substrings.
+# version_group: regex capture group index for version extraction (optional)
+# cpe: CPE 2.3 identifier prefix for CVE correlation (optional)
 
 fingerprints:
   # Web servers
   - pattern: "apache"
     service: "Apache HTTP Server"
     category: "web"
+    version_group: 1
+    cpe: "cpe:2.3:a:apache:http_server"
   - pattern: "nginx"
     service: "Nginx"
     category: "web"
+    version_group: 1
+    cpe: "cpe:2.3:a:f5:nginx"
   - pattern: "iis"
     service: "Microsoft IIS"
     category: "web"
+    version_group: 1
+    cpe: "cpe:2.3:a:microsoft:internet_information_services"
   - pattern: "lighttpd"
     service: "Lighttpd"
     category: "web"
+    version_group: 1
+    cpe: "cpe:2.3:a:lighttpd:lighttpd"
   - pattern: "caddy"
     service: "Caddy"
     category: "web"
+    version_group: 1
+    cpe: "cpe:2.3:a:caddyserver:caddy"
   - pattern: "litespeed"
     service: "LiteSpeed"
     category: "web"
+    version_group: 1
+    cpe: "cpe:2.3:a:litespeedtech:litespeed_web_server"
+  - pattern: "gunicorn"
+    service: "Gunicorn"
+    category: "web"
+    version_group: 1
+    cpe: "cpe:2.3:a:gunicorn:gunicorn"
+  - pattern: "uvicorn"
+    service: "Uvicorn"
+    category: "web"
+    version_group: 1
+    cpe: "cpe:2.3:a:encode:uvicorn"
+  - pattern: "openresty"
+    service: "OpenResty"
+    category: "web"
+    version_group: 1
+    cpe: "cpe:2.3:a:openresty:openresty"
+  - pattern: "cherokee"
+    service: "Cherokee"
+    category: "web"
+    version_group: 1
+    cpe: "cpe:2.3:a:cherokee-project:cherokee"
 
   # Mail servers
   - pattern: "postfix"
     service: "Postfix SMTP"
     category: "mail"
+    version_group: 1
+    cpe: "cpe:2.3:a:postfix:postfix"
   - pattern: "exim"
     service: "Exim SMTP"
     category: "mail"
+    version_group: 1
+    cpe: "cpe:2.3:a:exim:exim"
   - pattern: "dovecot"
     service: "Dovecot IMAP/POP3"
     category: "mail"
+    version_group: 1
+    cpe: "cpe:2.3:a:dovecot:dovecot"
   - pattern: "sendmail"
     service: "Sendmail"
     category: "mail"
+    version_group: 1
+    cpe: "cpe:2.3:a:sendmail:sendmail"
+  - pattern: "cyrus"
+    service: "Cyrus IMAP"
+    category: "mail"
+    version_group: 1
+    cpe: "cpe:2.3:a:cmu:cyrus_imap"
+  - pattern: "zimbra"
+    service: "Zimbra"
+    category: "mail"
+    version_group: 1
+    cpe: "cpe:2.3:a:synacor:zimbra"
+  - pattern: "hmail"
+    service: "hMailServer"
+    category: "mail"
+    version_group: 1
+    cpe: "cpe:2.3:a:hmailserver:hmailserver"
 
   # SSH
   - pattern: "openssh"
     service: "OpenSSH"
     category: "remote"
+    version_group: 1
+    cpe: "cpe:2.3:a:openbsd:openssh"
   - pattern: "dropbear"
     service: "Dropbear SSH"
     category: "remote"
+    version_group: 1
+    cpe: "cpe:2.3:a:dropbear_ssh_project:dropbear_ssh"
+  - pattern: "libssh"
+    service: "libssh"
+    category: "remote"
+    version_group: 1
+    cpe: "cpe:2.3:a:libssh:libssh"
+  - pattern: "putty"
+    service: "PuTTY"
+    category: "remote"
+    version_group: 1
+    cpe: "cpe:2.3:a:putty:putty"
+  - pattern: "bitvise"
+    service: "Bitvise SSH"
+    category: "remote"
+    version_group: 1
+    cpe: "cpe:2.3:a:bitvise:ssh_server"
 
   # Databases
   - pattern: "mysql"
     service: "MySQL"
     category: "database"
+    version_group: 1
+    cpe: "cpe:2.3:a:oracle:mysql"
   - pattern: "mariadb"
     service: "MariaDB"
     category: "database"
+    version_group: 1
+    cpe: "cpe:2.3:a:mariadb:mariadb"
   - pattern: "postgresql"
     service: "PostgreSQL"
     category: "database"
+    version_group: 1
+    cpe: "cpe:2.3:a:postgresql:postgresql"
   - pattern: "redis"
     service: "Redis"
     category: "database"
+    version_group: 1
+    cpe: "cpe:2.3:a:redis:redis"
   - pattern: "mongodb"
     service: "MongoDB"
     category: "database"
+    version_group: 1
+    cpe: "cpe:2.3:a:mongodb:mongodb"
   - pattern: "microsoft sql server"
     service: "Microsoft SQL Server"
     category: "database"
+    version_group: 1
+    cpe: "cpe:2.3:a:microsoft:sql_server"
   - pattern: "oracle"
     service: "Oracle Database"
     category: "database"
+    version_group: 1
+    cpe: "cpe:2.3:a:oracle:database_server"
+  - pattern: "couchdb"
+    service: "CouchDB"
+    category: "database"
+    version_group: 1
+    cpe: "cpe:2.3:a:apache:couchdb"
+  - pattern: "cassandra"
+    service: "Apache Cassandra"
+    category: "database"
+    version_group: 1
+    cpe: "cpe:2.3:a:apache:cassandra"
+  - pattern: "cockroachdb"
+    service: "CockroachDB"
+    category: "database"
+    version_group: 1
+    cpe: "cpe:2.3:a:cockroachlabs:cockroachdb"
+  - pattern: "influxdb"
+    service: "InfluxDB"
+    category: "database"
+    version_group: 1
+    cpe: "cpe:2.3:a:influxdata:influxdb"
+  - pattern: "neo4j"
+    service: "Neo4j"
+    category: "database"
+    version_group: 1
+    cpe: "cpe:2.3:a:neo4j:neo4j"
+  - pattern: "clickhouse"
+    service: "ClickHouse"
+    category: "database"
+    version_group: 1
+    cpe: "cpe:2.3:a:clickhouse:clickhouse"
+  - pattern: "sqlite"
+    service: "SQLite"
+    category: "database"
+    version_group: 1
+    cpe: "cpe:2.3:a:sqlite:sqlite"
+  - pattern: "arangodb"
+    service: "ArangoDB"
+    category: "database"
+    version_group: 1
+    cpe: "cpe:2.3:a:arangodb:arangodb"
 
   # FTP
   - pattern: "vsftpd"
     service: "vsftpd"
     category: "file"
+    version_group: 1
+    cpe: "cpe:2.3:a:vsftpd_project:vsftpd"
   - pattern: "proftpd"
     service: "ProFTPD"
     category: "file"
+    version_group: 1
+    cpe: "cpe:2.3:a:proftpd:proftpd"
   - pattern: "pure-ftpd"
     service: "Pure-FTPd"
     category: "file"
+    version_group: 1
+    cpe: "cpe:2.3:a:pureftpd:pure-ftpd"
   - pattern: "filezilla"
     service: "FileZilla Server"
     category: "file"
+    version_group: 1
+    cpe: "cpe:2.3:a:filezilla-project:filezilla_server"
 
   # DNS
   - pattern: "bind"
     service: "ISC BIND"
     category: "dns"
+    version_group: 1
+    cpe: "cpe:2.3:a:isc:bind"
   - pattern: "unbound"
     service: "Unbound DNS"
     category: "dns"
+    version_group: 1
+    cpe: "cpe:2.3:a:nlnetlabs:unbound"
   - pattern: "dnsmasq"
     service: "Dnsmasq"
     category: "dns"
+    version_group: 1
+    cpe: "cpe:2.3:a:thekelleys:dnsmasq"
+  - pattern: "powerdns"
+    service: "PowerDNS"
+    category: "dns"
+    version_group: 1
+    cpe: "cpe:2.3:a:powerdns:authoritative_server"
+  - pattern: "knot"
+    service: "Knot DNS"
+    category: "dns"
+    version_group: 1
+    cpe: "cpe:2.3:a:nic:knot_dns"
+  - pattern: "coredns"
+    service: "CoreDNS"
+    category: "dns"
+    version_group: 1
+    cpe: "cpe:2.3:a:coredns:coredns"
 
   # Proxies / load balancers
   - pattern: "haproxy"
     service: "HAProxy"
     category: "proxy"
+    version_group: 1
+    cpe: "cpe:2.3:a:haproxy:haproxy"
   - pattern: "squid"
     service: "Squid Proxy"
     category: "proxy"
+    version_group: 1
+    cpe: "cpe:2.3:a:squid-cache:squid"
   - pattern: "varnish"
     service: "Varnish Cache"
     category: "proxy"
+    version_group: 1
+    cpe: "cpe:2.3:a:varnish-cache:varnish"
   - pattern: "envoy"
     service: "Envoy Proxy"
     category: "proxy"
+    version_group: 1
+    cpe: "cpe:2.3:a:envoyproxy:envoy"
+  - pattern: "traefik"
+    service: "Traefik"
+    category: "proxy"
+    version_group: 1
+    cpe: "cpe:2.3:a:traefik:traefik"
 
-  # Other
-  - pattern: "samba"
-    service: "Samba SMB"
-    category: "file"
-  - pattern: "rabbitmq"
-    service: "RabbitMQ"
-    category: "messaging"
-  - pattern: "docker"
-    service: "Docker API"
-    category: "container"
-  - pattern: "kubernetes"
-    service: "Kubernetes API"
-    category: "container"
-  - pattern: "elastic"
-    service: "Elasticsearch"
-    category: "search"
+  # Application servers
   - pattern: "tomcat"
     service: "Apache Tomcat"
     category: "web"
+    version_group: 1
+    cpe: "cpe:2.3:a:apache:tomcat"
   - pattern: "jetty"
     service: "Eclipse Jetty"
     category: "web"
+    version_group: 1
+    cpe: "cpe:2.3:a:eclipse:jetty"
+  - pattern: "wildfly"
+    service: "WildFly"
+    category: "web"
+    version_group: 1
+    cpe: "cpe:2.3:a:redhat:wildfly"
+  - pattern: "glassfish"
+    service: "GlassFish"
+    category: "web"
+    version_group: 1
+    cpe: "cpe:2.3:a:eclipse:glassfish"
+  - pattern: "weblogic"
+    service: "Oracle WebLogic"
+    category: "web"
+    version_group: 1
+    cpe: "cpe:2.3:a:oracle:weblogic_server"
+  - pattern: "websphere"
+    service: "IBM WebSphere"
+    category: "web"
+    version_group: 1
+    cpe: "cpe:2.3:a:ibm:websphere_application_server"
+  - pattern: "jboss"
+    service: "JBoss"
+    category: "web"
+    version_group: 1
+    cpe: "cpe:2.3:a:redhat:jboss_enterprise_application_platform"
+  - pattern: "express"
+    service: "Express.js"
+    category: "web"
+    version_group: 1
+    cpe: "cpe:2.3:a:expressjs:express"
+  - pattern: "kestrel"
+    service: "Kestrel"
+    category: "web"
+    version_group: 1
+    cpe: "cpe:2.3:a:microsoft:asp.net_core"
+
+  # Messaging / queues
+  - pattern: "rabbitmq"
+    service: "RabbitMQ"
+    category: "messaging"
+    version_group: 1
+    cpe: "cpe:2.3:a:vmware:rabbitmq"
+  - pattern: "activemq"
+    service: "ActiveMQ"
+    category: "messaging"
+    version_group: 1
+    cpe: "cpe:2.3:a:apache:activemq"
+  - pattern: "kafka"
+    service: "Apache Kafka"
+    category: "messaging"
+    version_group: 1
+    cpe: "cpe:2.3:a:apache:kafka"
+  - pattern: "nats"
+    service: "NATS"
+    category: "messaging"
+    version_group: 1
+    cpe: "cpe:2.3:a:nats:nats_server"
+  - pattern: "mosquitto"
+    service: "Eclipse Mosquitto"
+    category: "messaging"
+    version_group: 1
+    cpe: "cpe:2.3:a:eclipse:mosquitto"
+  - pattern: "zeromq"
+    service: "ZeroMQ"
+    category: "messaging"
+    version_group: 1
+    cpe: "cpe:2.3:a:zeromq:libzmq"
+
+  # Container / orchestration
+  - pattern: "docker"
+    service: "Docker API"
+    category: "container"
+    version_group: 1
+    cpe: "cpe:2.3:a:docker:docker"
+  - pattern: "kubernetes"
+    service: "Kubernetes API"
+    category: "container"
+    version_group: 1
+    cpe: "cpe:2.3:a:kubernetes:kubernetes"
+  - pattern: "containerd"
+    service: "containerd"
+    category: "container"
+    version_group: 1
+    cpe: "cpe:2.3:a:linuxfoundation:containerd"
+  - pattern: "podman"
+    service: "Podman"
+    category: "container"
+    version_group: 1
+    cpe: "cpe:2.3:a:podman_project:podman"
+
+  # Search / analytics
+  - pattern: "elastic"
+    service: "Elasticsearch"
+    category: "search"
+    version_group: 1
+    cpe: "cpe:2.3:a:elastic:elasticsearch"
+  - pattern: "solr"
+    service: "Apache Solr"
+    category: "search"
+    version_group: 1
+    cpe: "cpe:2.3:a:apache:solr"
+  - pattern: "opensearch"
+    service: "OpenSearch"
+    category: "search"
+    version_group: 1
+    cpe: "cpe:2.3:a:amazon:opensearch"
+  - pattern: "kibana"
+    service: "Kibana"
+    category: "search"
+    version_group: 1
+    cpe: "cpe:2.3:a:elastic:kibana"
+  - pattern: "grafana"
+    service: "Grafana"
+    category: "search"
+    version_group: 1
+    cpe: "cpe:2.3:a:grafana:grafana"
+  - pattern: "prometheus"
+    service: "Prometheus"
+    category: "search"
+    version_group: 1
+    cpe: "cpe:2.3:a:prometheus:prometheus"
+
+  # File sharing / SMB
+  - pattern: "samba"
+    service: "Samba SMB"
+    category: "file"
+    version_group: 1
+    cpe: "cpe:2.3:a:samba:samba"
+  - pattern: "freenas"
+    service: "FreeNAS"
+    category: "file"
+    version_group: 1
+    cpe: "cpe:2.3:a:ixsystems:freenas"
+  - pattern: "nextcloud"
+    service: "Nextcloud"
+    category: "file"
+    version_group: 1
+    cpe: "cpe:2.3:a:nextcloud:nextcloud_server"
+  - pattern: "owncloud"
+    service: "ownCloud"
+    category: "file"
+    version_group: 1
+    cpe: "cpe:2.3:a:owncloud:owncloud"
+
+  # VPN / remote access
+  - pattern: "openvpn"
+    service: "OpenVPN"
+    category: "vpn"
+    version_group: 1
+    cpe: "cpe:2.3:a:openvpn:openvpn"
+  - pattern: "wireguard"
+    service: "WireGuard"
+    category: "vpn"
+    version_group: 1
+    cpe: "cpe:2.3:a:wireguard:wireguard"
+  - pattern: "strongswan"
+    service: "strongSwan"
+    category: "vpn"
+    version_group: 1
+    cpe: "cpe:2.3:a:strongswan:strongswan"
+  - pattern: "fortinet"
+    service: "FortiGate VPN"
+    category: "vpn"
+    version_group: 1
+    cpe: "cpe:2.3:a:fortinet:fortigate"
+
+  # SNMP / monitoring
+  - pattern: "net-snmp"
+    service: "Net-SNMP"
+    category: "monitoring"
+    version_group: 1
+    cpe: "cpe:2.3:a:net-snmp:net-snmp"
+  - pattern: "nagios"
+    service: "Nagios"
+    category: "monitoring"
+    version_group: 1
+    cpe: "cpe:2.3:a:nagios:nagios"
+  - pattern: "zabbix"
+    service: "Zabbix"
+    category: "monitoring"
+    version_group: 1
+    cpe: "cpe:2.3:a:zabbix:zabbix"
+  - pattern: "snmpd"
+    service: "SNMP Daemon"
+    category: "monitoring"
+    version_group: 1
+    cpe: "cpe:2.3:a:net-snmp:net-snmp"
+  - pattern: "icinga"
+    service: "Icinga"
+    category: "monitoring"
+    version_group: 1
+    cpe: "cpe:2.3:a:icinga:icinga"
+
+  # CI/CD
+  - pattern: "jenkins"
+    service: "Jenkins"
+    category: "cicd"
+    version_group: 1
+    cpe: "cpe:2.3:a:jenkins:jenkins"
+  - pattern: "gitlab"
+    service: "GitLab"
+    category: "cicd"
+    version_group: 1
+    cpe: "cpe:2.3:a:gitlab:gitlab"
+  - pattern: "gitea"
+    service: "Gitea"
+    category: "cicd"
+    version_group: 1
+    cpe: "cpe:2.3:a:gitea:gitea"
+  - pattern: "sonarqube"
+    service: "SonarQube"
+    category: "cicd"
+    version_group: 1
+    cpe: "cpe:2.3:a:sonarsource:sonarqube"
+  - pattern: "artifactory"
+    service: "JFrog Artifactory"
+    category: "cicd"
+    version_group: 1
+    cpe: "cpe:2.3:a:jfrog:artifactory"
+  - pattern: "nexus"
+    service: "Sonatype Nexus"
+    category: "cicd"
+    version_group: 1
+    cpe: "cpe:2.3:a:sonatype:nexus"
+
+  # Caching
+  - pattern: "memcached"
+    service: "Memcached"
+    category: "cache"
+    version_group: 1
+    cpe: "cpe:2.3:a:memcached:memcached"
+  - pattern: "hazelcast"
+    service: "Hazelcast"
+    category: "cache"
+    version_group: 1
+    cpe: "cpe:2.3:a:hazelcast:hazelcast"
+
+  # LDAP / directory
+  - pattern: "openldap"
+    service: "OpenLDAP"
+    category: "directory"
+    version_group: 1
+    cpe: "cpe:2.3:a:openldap:openldap"
+  - pattern: "active directory"
+    service: "Active Directory"
+    category: "directory"
+    version_group: 1
+    cpe: "cpe:2.3:a:microsoft:active_directory"
+  - pattern: "389 directory"
+    service: "389 Directory Server"
+    category: "directory"
+    version_group: 1
+    cpe: "cpe:2.3:a:fedoraproject:389_directory_server"
+
+  # Miscellaneous
+  - pattern: "ntpd"
+    service: "NTP Daemon"
+    category: "time"
+    version_group: 1
+    cpe: "cpe:2.3:a:ntp:ntp"
+  - pattern: "chrony"
+    service: "Chrony NTP"
+    category: "time"
+    version_group: 1
+    cpe: "cpe:2.3:a:tuxfamily:chrony"
+  - pattern: "consul"
+    service: "HashiCorp Consul"
+    category: "service_mesh"
+    version_group: 1
+    cpe: "cpe:2.3:a:hashicorp:consul"
+  - pattern: "vault"
+    service: "HashiCorp Vault"
+    category: "secrets"
+    version_group: 1
+    cpe: "cpe:2.3:a:hashicorp:vault"
+  - pattern: "etcd"
+    service: "etcd"
+    category: "kv_store"
+    version_group: 1
+    cpe: "cpe:2.3:a:etcd:etcd"
+  - pattern: "minio"
+    service: "MinIO"
+    category: "storage"
+    version_group: 1
+    cpe: "cpe:2.3:a:minio:minio"
 
 # Well-known port defaults (used when banner detection fails)
 port_defaults:

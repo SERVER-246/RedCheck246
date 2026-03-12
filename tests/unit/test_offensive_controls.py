@@ -206,7 +206,7 @@ class TestRuntimeModeResearch:
         assert RuntimeMode.RESEARCH.value == "research"
 
     def test_all_modes_count(self):
-        assert len(RuntimeMode) == 5
+        assert len(RuntimeMode) == 6
 
 
 # ---------------------------------------------------------------------------

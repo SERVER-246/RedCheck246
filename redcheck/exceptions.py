@@ -339,3 +339,90 @@ class TenantIsolationError(RedCheckError):
             current_tenant=self.current_tenant,
         )
         return d
+
+
+# ---------------------------------------------------------------------------
+# OTP
+# ---------------------------------------------------------------------------
+
+
+class OTPError(RedCheckError):
+    """Base for OTP-related errors."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        challenge_id: str | None = None,
+        engagement_id: str | None = None,
+    ) -> None:
+        self.challenge_id = challenge_id
+        super().__init__(message, engagement_id=engagement_id)
+
+
+class OTPExpiredError(OTPError):
+    """OTP challenge has expired."""
+
+
+class OTPVerificationError(OTPError):
+    """OTP verification failed (wrong code)."""
+
+    def __init__(
+        self,
+        *,
+        attempts_remaining: int,
+        challenge_id: str | None = None,
+        engagement_id: str | None = None,
+    ) -> None:
+        self.attempts_remaining = attempts_remaining
+        super().__init__(
+            f"OTP verification failed, {attempts_remaining} attempts remaining",
+            challenge_id=challenge_id,
+            engagement_id=engagement_id,
+        )
+
+
+class OTPCancelledError(OTPError):
+    """User cancelled the OTP challenge."""
+
+
+class PipelineError(RedCheckError):
+    """Pipeline execution error."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        failed_plugin: str | None = None,
+        engagement_id: str | None = None,
+    ) -> None:
+        self.failed_plugin = failed_plugin
+        super().__init__(message, engagement_id=engagement_id)
+
+
+# ---------------------------------------------------------------------------
+# Target Identity Validation
+# ---------------------------------------------------------------------------
+
+
+class TargetIdentityError(RedCheckError):
+    """Raised when target identity validation fails in strict mode."""
+
+    def __init__(
+        self,
+        target: str,
+        confidence: float,
+        *,
+        engagement_id: str | None = None,
+    ) -> None:
+        self.target = target
+        self.confidence = confidence
+        super().__init__(
+            f"Target identity validation failed for '{target}' (confidence: {confidence:.2f})",
+            engagement_id=engagement_id,
+        )
+
+    def to_dict(self) -> dict[str, object]:
+        d = super().to_dict()
+        d.update(target=self.target, confidence=self.confidence)
+        return d

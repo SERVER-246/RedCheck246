@@ -42,5 +42,15 @@ notes: |
   - Evidence must be encrypted at rest.
   - Report findings within 24 hours of discovery.
 
+# ── Test Mode (optional) ────────────────────────────────────────
+# Uncomment to enable Test Mode capabilities:
+# runtime_mode: "test"
+# otp_email: "authorized-operator@example.com"
+#
+# offensive_controls:
+#   allow_auth_testing: true
+#   allow_exploit_validation: true
+#   chain_mode: true
+
 # HMAC-SHA256 signature — set via 'redcheck verify-roe' or manually
 signature: ""

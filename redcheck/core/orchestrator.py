@@ -23,6 +23,7 @@ from redcheck.exceptions import (
     ActivationError,
     IsolationError,
     OffensiveControlError,
+    PluginError,
     PluginNotFoundError,
     PolicyDeniedException,
     RoEValidationError,
@@ -30,6 +31,7 @@ from redcheck.exceptions import (
 )
 from redcheck.models import EngagementContext, PluginCapability, RuntimeMode
 from redcheck.plugins.base_plugin import PluginRegistry, PluginResult
+from redcheck.security.crypto import CryptoEngine
 
 log = structlog.get_logger(__name__)
 
@@ -64,6 +66,11 @@ _CAPABILITY_MODE_MATRIX: dict[RuntimeMode, dict[PluginCapability, bool]] = {
         PluginCapability.ACTIVE: True,
         PluginCapability.DESTRUCTIVE: True,
     },
+    RuntimeMode.TEST: {
+        PluginCapability.PASSIVE: True,
+        PluginCapability.ACTIVE: True,
+        PluginCapability.DESTRUCTIVE: True,
+    },
 }
 
 
@@ -80,6 +87,8 @@ class Orchestrator:
         self.audit = get_audit_logger()
         self._current_engagement: EngagementContext | None = None
         self._signature_verifier = signature_verifier
+        self._evidence_store: Any | None = None
+        self._trusted_plugin_hashes: dict[str, str] | None = None
 
     @property
     def current_engagement(self) -> EngagementContext | None:
@@ -220,6 +229,9 @@ class Orchestrator:
         duration_ms = int((time.monotonic() - start_time) * 1000)
         result.metadata["duration_ms"] = duration_ms
 
+        # Evidence indexing (opt-in)
+        self._index_evidence(result)
+
         log.info(
             "plugin_complete",
             plugin=plugin_name,
@@ -245,6 +257,7 @@ class Orchestrator:
         *,
         dry_run: bool = False,
         isolation_available: bool = False,
+        extra_context: dict[str, Any] | None = None,
     ) -> PluginResult:
         """Execute a plugin with full 11-step enforcement sequence (async).
 
@@ -312,6 +325,10 @@ class Orchestrator:
             if needs_isolation and not isolation_available:
                 raise IsolationError(plugin_name, engagement_id=eid)
 
+        # Step 8b — Plugin hash verification (TEST mode, opt-in)
+        if engagement.runtime_mode == RuntimeMode.TEST and self._trusted_plugin_hashes is not None:
+            self._verify_plugin_hash(plugin_name, plugin)
+
         # Step 9 — Rate limit enforcement (placeholder — integrated in Module 1.3)
 
         # Step 10 — Dry run
@@ -324,11 +341,15 @@ class Orchestrator:
                 engagement_id=eid,
             )
             context = engagement.model_dump(mode="json")
+            if extra_context:
+                context.update(extra_context)
             return plugin.dry_run(context)
 
         # Step 11 — Execute with timeout
         timeout = getattr(plugin, "timeout_seconds", 60)
         context = engagement.model_dump(mode="json")
+        if extra_context:
+            context.update(extra_context)
 
         log.info("async_plugin_execute", plugin=plugin_name, engagement_id=eid)
         self.audit.log(
@@ -367,6 +388,9 @@ class Orchestrator:
         duration_ms = int((time.monotonic() - start_time) * 1000)
         result.metadata["duration_ms"] = duration_ms
 
+        # Evidence indexing (opt-in)
+        self._index_evidence(result)
+
         log.info(
             "async_plugin_complete",
             plugin=plugin_name,
@@ -384,6 +408,50 @@ class Orchestrator:
             engagement_id=eid,
         )
         return result
+
+    def set_evidence_store(self, store: Any) -> None:
+        """Attach an EvidenceStore for automatic evidence indexing."""
+        self._evidence_store = store
+
+    def set_trusted_plugin_hashes(self, hashes: dict[str, str]) -> None:
+        """Set trusted plugin SHA-256 hashes for verification.
+
+        Keys are plugin names, values are expected SHA-256 hex digests
+        of the plugin source file.
+        """
+        self._trusted_plugin_hashes = dict(hashes)
+
+    def _index_evidence(self, result: PluginResult) -> None:
+        """Index any evidence attached to a plugin result."""
+        if self._evidence_store is None:
+            return
+        evidence_list = getattr(result, "evidence", None)
+        if not evidence_list:
+            return
+        for ev in evidence_list:
+            log.debug(
+                "evidence_indexed",
+                plugin=result.plugin_name,
+                sha256=getattr(ev, "sha256", "")[:12],
+            )
+
+    def _verify_plugin_hash(self, plugin_name: str, plugin: Any) -> None:
+        """Verify plugin source file hash against trusted hashes."""
+        if self._trusted_plugin_hashes is None:
+            return
+        expected = self._trusted_plugin_hashes.get(plugin_name)
+        if expected is None:
+            return
+
+        import inspect
+
+        source_file = inspect.getfile(type(plugin))
+        actual = CryptoEngine.hash_file(source_file)
+        if not CryptoEngine.secure_compare(actual, expected):
+            raise PluginError(
+                plugin_name,
+                f"Plugin hash verification failed: expected {expected[:12]}…, got {actual[:12]}…",
+            )
 
     def shutdown(self) -> None:
         """Clean shutdown of the orchestrator."""

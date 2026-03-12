@@ -132,6 +132,39 @@ def _should_exclude_dir(
 
 
 # ---------------------------------------------------------------------------
+# Test-directory exclusion (Phase 5 — opt-in via context key)
+# ---------------------------------------------------------------------------
+
+_ADDITIONAL_EXCLUDE_DIRS: frozenset[str] = frozenset(
+    {
+        "tests",
+        "test",
+        "fixtures",
+        "testdata",
+        "test_data",
+        "mocks",
+        "stubs",
+        "snapshots",
+    }
+)
+
+_ADDITIONAL_EXCLUDE_PATTERNS: tuple[str, ...] = (
+    "_test.py",
+    "test_",
+    "conftest.py",
+)
+
+
+def _is_test_file(filepath: str) -> bool:
+    """Return True if *filepath* looks like a test file or fixture."""
+    parts = Path(filepath).parts
+    if any(p in _ADDITIONAL_EXCLUDE_DIRS for p in parts):
+        return True
+    name = Path(filepath).name
+    return any(name.startswith(p) or name.endswith(p) for p in _ADDITIONAL_EXCLUDE_PATTERNS)
+
+
+# ---------------------------------------------------------------------------
 # Scanner helpers
 # ---------------------------------------------------------------------------
 
@@ -308,6 +341,11 @@ class SASTPlugin(BasePlugin):
             raw_paths = [raw_paths]
         paths = [Path(p).resolve() for p in raw_paths]
 
+        exclude_test_dirs = bool(context.get("sast_exclude_test_dirs", False))
+        exclude_dirs = _DEFAULT_EXCLUDE_DIRS
+        if exclude_test_dirs:
+            exclude_dirs = _DEFAULT_EXCLUDE_DIRS | _ADDITIONAL_EXCLUDE_DIRS
+
         all_findings: list[dict[str, Any]] = []
         errors: list[str] = []
 
@@ -321,10 +359,12 @@ class SASTPlugin(BasePlugin):
         try:
             for p in paths:
                 if p.is_file():
+                    if exclude_test_dirs and _is_test_file(str(p)):
+                        continue
                     all_findings.extend(_scan_file_patterns(p))
                 elif p.is_dir():
                     for root, dirs, files in os.walk(p):
-                        dirs[:] = [d for d in dirs if not _should_exclude_dir(d)]
+                        dirs[:] = [d for d in dirs if not _should_exclude_dir(d, exclude_dirs)]
                         for fname in files:
                             if fname.endswith(
                                 (
@@ -340,7 +380,10 @@ class SASTPlugin(BasePlugin):
                                     ".env",
                                 )
                             ):
-                                all_findings.extend(_scan_file_patterns(Path(root) / fname))
+                                fpath = Path(root) / fname
+                                if exclude_test_dirs and _is_test_file(str(fpath)):
+                                    continue
+                                all_findings.extend(_scan_file_patterns(fpath))
         except Exception as exc:
             errors.append(f"Pattern scan error: {exc}")
 
@@ -358,6 +401,20 @@ class SASTPlugin(BasePlugin):
             if key not in seen:
                 seen.add(key)
                 deduped.append(f)
+
+        # Severity de-escalation for test-file findings
+        if exclude_test_dirs:
+            severity_downgrade = {
+                "critical": "high",
+                "high": "medium",
+                "medium": "low",
+                "low": "info",
+            }
+            for finding in deduped:
+                if _is_test_file(finding.get("target", "")):
+                    finding.setdefault("data", {})["likely_false_positive"] = True
+                    orig = finding.get("severity", "info")
+                    finding["severity"] = severity_downgrade.get(orig, orig)
 
         return PluginResult(
             plugin_name=self.name,
