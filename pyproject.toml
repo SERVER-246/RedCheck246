@@ -65,6 +65,7 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = ["S106", "S105", "S108", "ANN", "D", "TCH"]
+"redcheck/cli.py" = ["PT028"]
 "redcheck/core/metrics.py" = ["S608"]
 
 [tool.pytest.ini_options]

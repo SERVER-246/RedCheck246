@@ -337,7 +337,7 @@ class TargetIdentityValidator:
                     timeout=TARGET_IDENTITY_DNS_TIMEOUT_SECONDS,
                 )
                 reverse_hostnames.append(hostname_result)
-            except Exception:
+            except Exception:  # noqa: S110
                 pass
 
         # Consistency: reverse should contain the original target

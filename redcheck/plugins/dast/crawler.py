@@ -311,7 +311,7 @@ class AdvancedCrawler:
                                 "finding_type": "api_spec_discovered",
                             }
                         )
-                except Exception:
+                except Exception:  # noqa: S110
                     pass
         finally:
             if own_client:

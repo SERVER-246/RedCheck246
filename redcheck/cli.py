@@ -407,9 +407,11 @@ def run_all_cmd(
                     if pdf:
                         out.print(f"[green]✓[/green] PDF report: {pdf}")
                     else:
-                        out.print(
-                            "[yellow]![/yellow] PDF generation unavailable (weasyprint not installed)"
+                        msg = (
+                            "[yellow]![/yellow] PDF generation"
+                            " unavailable (weasyprint not installed)"
                         )
+                        out.print(msg)
                 else:
                     rpt_name = f"{engagement_id}_{plugin_name}_report.json"
                     jp = exporter.export_json(scan_report, out_path / rpt_name, sign=False)
@@ -424,7 +426,7 @@ def run_all_cmd(
     if failed:
         out.print(f"  [red]Failed:[/red]  {len(failed)} — {', '.join(failed)}")
     else:
-        out.print(f"  [red]Failed:[/red]  0")
+        out.print("  [red]Failed:[/red]  0")
     if skipped:
         out.print(f"  [yellow]Skipped:[/yellow] {len(skipped)} — {', '.join(skipped)}")
 

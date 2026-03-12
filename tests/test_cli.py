@@ -128,6 +128,7 @@ class TestRunAll:
     def test_run_all_skips_unregistered_plugin(self, tmp_path):
         """Plugins not in the registry are counted as skipped."""
         import yaml
+
         from tests.conftest import _make_roe
 
         roe = _make_roe(tests=["passive-recon", "nonexistent-plugin-xyz"])
