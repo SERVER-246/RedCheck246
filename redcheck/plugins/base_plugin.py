@@ -9,43 +9,15 @@ from __future__ import annotations
 import difflib
 import importlib.metadata
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
 from typing import Any
 
 import structlog
 
-from redcheck.models import PluginCapability
+from redcheck.models import PluginCapability, PluginResult
+
+__all__ = ["BasePlugin", "PluginCapability", "PluginRegistry", "PluginResult"]
 
 log = structlog.get_logger(__name__)
-
-
-# ------------------------------------------------------------------
-# Lightweight dataclass result — used by the plugin layer itself.
-# The Pydantic ``PluginResult`` model in ``models.py`` is used at
-# the reporting / serialisation boundary.
-# ------------------------------------------------------------------
-
-
-@dataclass
-class PluginResult:
-    """Standard result returned by plugin execution."""
-
-    plugin_name: str
-    success: bool
-    findings: list[dict[str, Any]] = field(default_factory=list)
-    evidence: list[dict[str, Any]] = field(default_factory=list)
-    errors: list[str] = field(default_factory=list)
-    metadata: dict[str, Any] = field(default_factory=dict)
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "plugin_name": self.plugin_name,
-            "success": self.success,
-            "findings": self.findings,
-            "evidence": self.evidence,
-            "errors": self.errors,
-            "metadata": self.metadata,
-        }
 
 
 # ------------------------------------------------------------------

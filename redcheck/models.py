@@ -131,7 +131,12 @@ class TargetSpec(BaseModel):
 
 
 class Finding(BaseModel):
-    """Individual security finding produced by a plugin."""
+    """Individual security finding produced by a plugin.
+
+    Supports dict-style access (``f["key"]``) for backward compatibility
+    with existing code that expects raw dicts.  Attribute lookup checks
+    model fields first, then falls back to ``metadata``.
+    """
 
     finding_type: str
     target: str
@@ -148,6 +153,30 @@ class Finding(BaseModel):
     sampled_data_len: int | None = None
     mitre_technique: str | None = None
 
+    def __getitem__(self, key: str) -> Any:
+        """Dict-style read: check model fields first, then metadata."""
+        if key in type(self).model_fields:
+            val = getattr(self, key)
+            # Return enum values as plain strings for backward compat
+            if isinstance(val, enum.Enum):
+                return val.value
+            return val
+        if key in self.metadata:
+            return self.metadata[key]
+        raise KeyError(key)
+
+    def __contains__(self, key: object) -> bool:
+        if isinstance(key, str) and key in type(self).model_fields:
+            return True
+        return key in self.metadata
+
+    def get(self, key: str, default: Any = None) -> Any:
+        """Dict-style ``.get()`` with fallback."""
+        try:
+            return self[key]
+        except KeyError:
+            return default
+
 
 class Evidence(BaseModel):
     """Collected evidence artifact metadata."""
@@ -161,8 +190,50 @@ class Evidence(BaseModel):
     provenance_tag: str | None = None
 
 
+def _dict_to_finding(raw: dict[str, Any]) -> Finding:
+    """Convert a raw plugin dict to a Finding, moving unknown keys to metadata."""
+    known = set(Finding.model_fields.keys())
+    finding_data: dict[str, Any] = {}
+    extra: dict[str, Any] = {}
+    for k, v in raw.items():
+        if k in known:
+            finding_data[k] = v
+        else:
+            extra[k] = v
+    # Merge extra keys into metadata so no data is lost
+    meta = finding_data.get("metadata") or {}
+    meta = {**meta, **extra} if isinstance(meta, dict) else extra
+    finding_data["metadata"] = meta
+    # Ensure required fields have sensible defaults
+    finding_data.setdefault("finding_type", "unknown")
+    finding_data.setdefault("target", "")
+    finding_data.setdefault("severity", "info")
+    finding_data.setdefault("detail", "")
+    # Coerce invalid severity values to info
+    sev = finding_data.get("severity", "info")
+    valid_sevs = {e.value for e in FindingSeverity}
+    if isinstance(sev, str) and sev.lower() not in valid_sevs:
+        finding_data["severity"] = "info"
+    return Finding.model_validate(finding_data)
+
+
+def _dict_to_evidence(raw: dict[str, Any]) -> Evidence:
+    """Convert a raw evidence dict to an Evidence object."""
+    data = dict(raw)
+    data.setdefault("evidence_type", "unknown")
+    data.setdefault("path", "")
+    data.setdefault("sha256", "")
+    return Evidence.model_validate(data)
+
+
 class PluginResult(BaseModel):
-    """Standardised result returned by every plugin execution."""
+    """Standardised result returned by every plugin execution.
+
+    Accepts both proper ``Finding``/``Evidence`` objects **and** raw dicts
+    (legacy plugin output).  Dicts are automatically coerced to the
+    corresponding Pydantic models during construction so downstream code
+    always sees typed objects.
+    """
 
     plugin_name: str
     success: bool
@@ -172,6 +243,36 @@ class PluginResult(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
     duration_ms: float | None = None
     mode: str = "live"
+
+    @field_validator("findings", mode="before")
+    @classmethod
+    def _coerce_findings(cls, v: Any) -> Any:
+        if not isinstance(v, list):
+            return v
+        coerced: list[Any] = []
+        for item in v:
+            if isinstance(item, dict):
+                coerced.append(_dict_to_finding(item))
+            else:
+                coerced.append(item)
+        return coerced
+
+    @field_validator("evidence", mode="before")
+    @classmethod
+    def _coerce_evidence(cls, v: Any) -> Any:
+        if not isinstance(v, list):
+            return v
+        coerced: list[Any] = []
+        for item in v:
+            if isinstance(item, dict):
+                coerced.append(_dict_to_evidence(item))
+            else:
+                coerced.append(item)
+        return coerced
+
+    def to_dict(self) -> dict[str, Any]:
+        """Backward-compatible dict export."""
+        return self.model_dump(mode="json")
 
     @property
     def finding_count(self) -> int:

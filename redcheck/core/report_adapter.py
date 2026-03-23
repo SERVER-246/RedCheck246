@@ -9,11 +9,14 @@ any plugin.
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import structlog
 
 from redcheck.models import Finding, FindingSeverity, ScanReport
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 log = structlog.get_logger(__name__)
 
@@ -52,7 +55,7 @@ def _dict_to_finding(raw: dict[str, Any], plugin_name: str) -> Finding:
 
 def plugin_result_to_scan_report(
     plugin_name: str,
-    findings: list[dict[str, Any]],
+    findings: Sequence[Finding | dict[str, Any]],
     metadata: dict[str, Any],
     engagement_id: str,
     duration_ms: int | None = None,
@@ -81,6 +84,9 @@ def plugin_result_to_scan_report(
 
     converted_findings: list[Finding] = []
     for raw in findings:
+        if isinstance(raw, Finding):
+            converted_findings.append(raw)
+            continue
         try:
             converted_findings.append(_dict_to_finding(raw, plugin_name))
         except Exception:
