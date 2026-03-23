@@ -29,7 +29,7 @@ from redcheck.exceptions import (
     RoEValidationError,
     ScanTimeoutError,
 )
-from redcheck.models import EngagementContext, PluginCapability, RuntimeMode
+from redcheck.models import EngagementContext, OffensiveControls, PluginCapability, RuntimeMode
 from redcheck.plugins.base_plugin import PluginRegistry, PluginResult
 from redcheck.security.crypto import CryptoEngine
 
@@ -534,6 +534,17 @@ def _build_engagement_from_roe(roe_data: dict[str, Any], roe_path: str) -> Engag
             raw = raw[:-1] + "+00:00"
         return datetime.fromisoformat(raw)
 
+    # Parse offensive_controls from RoE YAML
+    oc_raw = roe_data.get("offensive_controls", {})
+    offensive_controls = OffensiveControls(**(oc_raw if isinstance(oc_raw, dict) else {}))
+
+    # Parse runtime_mode from RoE YAML
+    rm_raw = roe_data.get("runtime_mode", "dev")
+    try:
+        runtime_mode = RuntimeMode(rm_raw) if rm_raw else RuntimeMode.DEV
+    except ValueError:
+        runtime_mode = RuntimeMode.DEV
+
     return EngagementContext(
         engagement_id=str(roe_data.get("engagement_id", "")),
         authorizer=str(roe_data.get("authorizer", "")),
@@ -544,4 +555,7 @@ def _build_engagement_from_roe(roe_data: dict[str, Any], roe_path: str) -> Engag
         sensitivity=str(roe_data.get("sensitivity", "standard")),
         roe_path=roe_path,
         roe_signed=bool(roe_data.get("signature")),
+        offensive_controls=offensive_controls,
+        runtime_mode=runtime_mode,
+        otp_email=roe_data.get("otp_email"),
     )

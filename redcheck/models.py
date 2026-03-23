@@ -253,6 +253,17 @@ class EngagementContext(BaseModel):
             if raw.endswith("Z"):
                 data[key] = raw[:-1] + "+00:00"
 
+        # Parse offensive_controls from RoE YAML
+        oc_raw = data.get("offensive_controls", {})
+        offensive_controls = OffensiveControls(**(oc_raw if isinstance(oc_raw, dict) else {}))
+
+        # Parse runtime_mode from RoE YAML
+        rm_raw = data.get("runtime_mode", "dev")
+        try:
+            runtime_mode = RuntimeMode(rm_raw) if rm_raw else RuntimeMode.DEV
+        except ValueError:
+            runtime_mode = RuntimeMode.DEV
+
         return cls(
             engagement_id=data.get("engagement_id", path.stem),
             authorizer=data.get("authorizer", ""),
@@ -263,6 +274,8 @@ class EngagementContext(BaseModel):
             sensitivity=data.get("sensitivity", "standard"),
             roe_path=str(path),
             otp_email=data.get("otp_email"),
+            offensive_controls=offensive_controls,
+            runtime_mode=runtime_mode,
         )
 
 

@@ -163,12 +163,12 @@ def run_cmd(
         None,
         "--output-dir",
         "-o",
-        help="Directory to write JSON/PDF reports into (optional)",
+        help="Directory to write reports into (auto-saves to RoE's reports/ if omitted)",
     ),
     report_format: str = typer.Option(
         "json",
         "--report-format",
-        help="Report format: json, pdf, all (default: json)",
+        help="Report format: json, md, pdf, all (default: json)",
     ),
 ) -> None:
     """Execute a specific plugin."""
@@ -223,7 +223,14 @@ def _run_plugin_impl(
     format_scan_result(result_dict, _format)
 
     # --- Report generation (BC-7: failure here must never abort the scan) ---
-    if output_dir and not dry_run:
+    # Auto-resolve output directory from RoE parent if not explicitly given
+    effective_output_dir = output_dir
+    if not effective_output_dir and not dry_run and orch.current_engagement:
+        roe_p = orch.current_engagement.roe_path
+        if roe_p:
+            effective_output_dir = str(Path(roe_p).resolve().parent / "reports")
+
+    if effective_output_dir and not dry_run:
         try:
             from redcheck.core.report_adapter import plugin_result_to_scan_report
             from redcheck.core.reporting import ReportExporter
@@ -243,7 +250,7 @@ def _run_plugin_impl(
             )
 
             exporter = ReportExporter()
-            out_path = Path(output_dir)
+            out_path = Path(effective_output_dir)
 
             if report_format == "all":
                 paths = exporter.export_all(
@@ -254,10 +261,21 @@ def _run_plugin_impl(
                 out.print(
                     f"[green]✓[/green] JSON report: {paths['json']}",
                 )
+                if paths.get("md"):
+                    out.print(
+                        f"[green]✓[/green] MD report:   {paths['md']}",
+                    )
                 if paths.get("pdf"):
                     out.print(
                         f"[green]✓[/green] PDF report:  {paths['pdf']}",
                     )
+            elif report_format == "md":
+                rpt_name = f"{engagement_id}_report.md"
+                md = exporter.export_markdown(
+                    scan_report,
+                    out_path / rpt_name,
+                )
+                out.print(f"[green]✓[/green] MD report: {md}")
             elif report_format == "pdf":
                 rpt_name = f"{engagement_id}_report.pdf"
                 pdf = exporter.export_pdf(
@@ -301,12 +319,12 @@ def run_all_cmd(
         None,
         "--output-dir",
         "-o",
-        help="Directory to write JSON/PDF reports into (optional)",
+        help="Directory to write reports into (auto-saves to RoE's reports/ if omitted)",
     ),
     report_format: str = typer.Option(
         "json",
         "--report-format",
-        help="Report format: json, pdf, all (default: json)",
+        help="Report format: json, md, pdf, all (default: json)",
     ),
 ) -> None:
     """Execute every plugin listed in the RoE's allowed_tests sequentially."""
@@ -378,7 +396,14 @@ def run_all_cmd(
             failed.append(plugin_name)
 
         # Report generation per-plugin (failures never abort)
-        if output_dir and not dry_run and result.success:
+        # Auto-resolve output directory from RoE parent if not explicitly given
+        effective_output_dir = output_dir
+        if not effective_output_dir and not dry_run:
+            roe_p = eng.roe_path
+            if roe_p:
+                effective_output_dir = str(Path(roe_p).resolve().parent / "reports")
+
+        if effective_output_dir and not dry_run and result.success:
             try:
                 from redcheck.core.report_adapter import plugin_result_to_scan_report
                 from redcheck.core.reporting import ReportExporter
@@ -394,13 +419,19 @@ def run_all_cmd(
                     duration_ms=raw_metadata.get("duration_ms"),
                 )
                 exporter = ReportExporter()
-                out_path = Path(output_dir)
+                out_path = Path(effective_output_dir)
 
                 if report_format == "all":
                     paths = exporter.export_all(scan_report, out_path, sign=False)
                     out.print(f"[green]✓[/green] JSON report: {paths['json']}")
+                    if paths.get("md"):
+                        out.print(f"[green]✓[/green] MD report:   {paths['md']}")
                     if paths.get("pdf"):
                         out.print(f"[green]✓[/green] PDF report:  {paths['pdf']}")
+                elif report_format == "md":
+                    rpt_name = f"{engagement_id}_{plugin_name}_report.md"
+                    md = exporter.export_markdown(scan_report, out_path / rpt_name)
+                    out.print(f"[green]✓[/green] MD report: {md}")
                 elif report_format == "pdf":
                     rpt_name = f"{engagement_id}_{plugin_name}_report.pdf"
                     pdf = exporter.export_pdf(scan_report, out_path / rpt_name)
