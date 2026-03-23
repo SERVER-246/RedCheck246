@@ -10,7 +10,7 @@ import re
 import time
 from collections import deque
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, cast
 from urllib.parse import urljoin, urlparse
 
 import httpx
@@ -159,6 +159,7 @@ class AdvancedCrawler:
         own_client = client is None
         if own_client:
             client = httpx.AsyncClient(verify=scanning_ssl_context(), timeout=10.0)
+        client = cast("httpx.AsyncClient", client)
 
         bucket = TokenBucket(rate=self.rate_rps)
         robots = RobotsTxtParser()
@@ -292,6 +293,7 @@ class AdvancedCrawler:
         own_client = client is None
         if own_client:
             client = httpx.AsyncClient(verify=scanning_ssl_context(), timeout=10.0)
+        client = cast("httpx.AsyncClient", client)
 
         results: list[dict[str, Any]] = []
         try:

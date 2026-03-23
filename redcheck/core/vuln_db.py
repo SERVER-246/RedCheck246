@@ -156,7 +156,7 @@ class VulnerabilityDatabase:
         self._load()
         patterns = self._injection_patterns or {}
         cat_data = patterns.get(category, {})
-        payloads = cat_data.get("payloads", [])
+        payloads: list[str] = cat_data.get("payloads", [])
         return payloads[:MAX_INJECTION_PAYLOADS_PER_CATEGORY]
 
     def match_web_vuln(
@@ -214,7 +214,8 @@ class VulnerabilityDatabase:
         self._load()
         patterns = self._injection_patterns or {}
         cat_data = patterns.get(category, {})
-        return cat_data.get("detection_patterns", [])
+        result: list[str] = cat_data.get("detection_patterns", [])
+        return result
 
     @property
     def web_vuln_count(self) -> int:

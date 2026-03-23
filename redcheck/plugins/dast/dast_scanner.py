@@ -37,7 +37,7 @@ def _strip_scheme(host: str) -> str:
     return host.rstrip("/")
 
 
-def _extract_targets(context: dict) -> list[dict[str, Any]]:
+def _extract_targets(context: dict[str, Any]) -> list[dict[str, Any]]:
     """Normalise target list from context."""
     raw = context.get("authorized_targets", [])
     targets = []
@@ -447,7 +447,7 @@ class DASTPlugin(BasePlugin):
     requires_authorization = True
     category = "dast"
 
-    def execute(self, context: dict) -> PluginResult:
+    def execute(self, context: dict[str, Any]) -> PluginResult:
         """Run all DAST modules against authorized targets."""
         targets = _extract_targets(context)
         all_findings: list[dict[str, Any]] = []
@@ -521,7 +521,7 @@ class DASTPlugin(BasePlugin):
 
         return findings
 
-    def dry_run(self, context: dict) -> PluginResult:
+    def dry_run(self, context: dict[str, Any]) -> PluginResult:
         """Simulate execution."""
         targets = _extract_targets(context)
         return PluginResult(

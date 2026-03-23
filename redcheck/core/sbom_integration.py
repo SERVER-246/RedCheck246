@@ -33,7 +33,10 @@ def _get_installed_packages() -> list[dict[str, str]]:
             {
                 "name": name,
                 "version": dist.metadata["Version"],
-                "license": dist.metadata.get("License") or "NOASSERTION",
+                "license": (
+                    (dist.metadata["License"] if dist.metadata["License"] else None)
+                    or "NOASSERTION"
+                ),
             }
         )
 

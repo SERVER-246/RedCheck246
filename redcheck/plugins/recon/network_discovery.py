@@ -205,7 +205,7 @@ class InternalNetworkDiscoveryEngine(BasePlugin):
             log.warning("invalid_cidr", cidr=cidr)
             return []
 
-        hosts = []
+        hosts: list[str] = []
         for addr in network.hosts():
             if len(hosts) >= MAX_DISCOVERY_HOSTS:
                 break

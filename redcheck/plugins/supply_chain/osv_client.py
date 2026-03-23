@@ -48,7 +48,8 @@ class OSVClient:
         """
         cache_key = f"{ecosystem}:{package}:{version}"
         if cache_key in self._cache:
-            return self._cache[cache_key]
+            cached: dict[str, Any] = self._cache[cache_key]
+            return cached
 
         payload: dict[str, Any] = {
             "package": {"name": package, "ecosystem": ecosystem},
@@ -62,7 +63,7 @@ class OSVClient:
                 try:
                     resp = await client.post(_OSV_QUERY_URL, json=payload)
                     resp.raise_for_status()
-                    result = resp.json()
+                    result: dict[str, Any] = resp.json()
                     self._cache[cache_key] = result
                     return result
                 except (httpx.TimeoutException, httpx.HTTPStatusError) as exc:

@@ -52,7 +52,7 @@ except ImportError:  # pragma: no cover
 
 # Optional: WeasyPrint for PDF
 try:
-    import weasyprint  # type: ignore[import-untyped]
+    import weasyprint  # pyright: ignore[reportMissingImports]
 
     _HAS_WEASYPRINT = True
 except ImportError:  # pragma: no cover

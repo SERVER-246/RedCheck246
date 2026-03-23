@@ -52,10 +52,10 @@ def parse_pyproject_toml(path: Path) -> list[dict[str, str]]:
         return deps
 
     try:
-        import tomllib  # type: ignore[import-not-found]
+        import tomllib
     except ImportError:
         try:
-            import tomli as tomllib  # type: ignore[no-redef,import-not-found]
+            import tomli as tomllib
         except ImportError:
             return deps
 

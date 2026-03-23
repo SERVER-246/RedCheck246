@@ -41,7 +41,7 @@ _HTTP_TIMEOUT = 10.0
 _CT_TIMEOUT = 15.0
 
 
-def _extract_host(target: dict | str) -> str:
+def _extract_host(target: dict[str, Any] | str) -> str:
     if isinstance(target, str):
         return target.strip()
     return (target.get("host") or "").strip()
@@ -115,7 +115,7 @@ async def whois_lookup(host: str) -> list[dict[str, Any]]:
     """WHOIS lookup via python-whois (synchronous, wrapped in executor)."""
     findings: list[dict[str, Any]] = []
     try:
-        import whois as python_whois  # type: ignore[import-untyped]
+        import whois as python_whois
 
         loop = asyncio.get_running_loop()
         data = await loop.run_in_executor(None, python_whois.whois, host)
@@ -332,7 +332,7 @@ class PassiveReconPlugin(BasePlugin):
     requires_authorization = True
     category = "recon"
 
-    def execute(self, context: dict) -> PluginResult:
+    def execute(self, context: dict[str, Any]) -> PluginResult:
         """Run all passive recon modules against authorized targets."""
         targets = context.get("authorized_targets", [])
         all_findings: list[dict[str, Any]] = []
@@ -421,7 +421,7 @@ class PassiveReconPlugin(BasePlugin):
 
         return findings
 
-    def dry_run(self, context: dict) -> PluginResult:
+    def dry_run(self, context: dict[str, Any]) -> PluginResult:
         """Simulate execution — report what *would* happen."""
         targets = context.get("authorized_targets", [])
         hosts = [_extract_host(t) for t in targets]

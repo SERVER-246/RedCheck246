@@ -14,7 +14,8 @@ from redcheck.exceptions import ChainModeError, PipelineError
 
 if TYPE_CHECKING:
     from redcheck.core.orchestrator import Orchestrator
-    from redcheck.models import EngagementContext, PluginResult
+    from redcheck.models import EngagementContext
+    from redcheck.plugins.base_plugin import PluginResult
 
 log = structlog.get_logger(__name__)
 
@@ -121,7 +122,7 @@ class PipelineExecutor:
 
             if chain and self._results:
                 extra_context["upstream_findings"] = [
-                    f.model_dump() for r in self._results.values() for f in r.findings
+                    f for r in self._results.values() for f in r.findings
                 ]
                 extra_context["upstream_plugins"] = list(self._results.keys())
                 extra_context["discovered_services"] = _extract_services(self._results)

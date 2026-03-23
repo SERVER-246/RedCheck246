@@ -158,7 +158,8 @@ class ServiceVersionDetector:
         versions = svc_data.get("versions", {})
 
         if version and version in versions:
-            return versions[version].get("cves", [])
+            cves: list[str] = versions[version].get("cves", [])
+            return cves
 
         # If no specific version, return all CVEs for the service
         all_cves: list[str] = []
@@ -173,7 +174,8 @@ class ServiceVersionDetector:
         """Load service_versions.json from package data."""
         try:
             ref = importlib.resources.files("redcheck.data").joinpath("service_versions.json")
-            return json.loads(ref.read_text(encoding="utf-8"))
+            loaded: dict[str, Any] = json.loads(ref.read_text(encoding="utf-8"))
+            return loaded
         except Exception:
             log.warning("service_versions_load_failed", exc_info=True)
             return {}

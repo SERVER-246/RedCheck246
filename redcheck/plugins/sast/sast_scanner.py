@@ -200,8 +200,8 @@ def _scan_bandit(paths: list[Path]) -> list[dict[str, Any]]:
     """Run bandit programmatically and collect findings."""
     findings: list[dict[str, Any]] = []
     try:
-        from bandit.core import config as bandit_config  # type: ignore[import-untyped]
-        from bandit.core import manager as bandit_manager  # type: ignore[import-untyped]
+        from bandit.core import config as bandit_config
+        from bandit.core import manager as bandit_manager
     except ImportError:
         findings.append(
             {
@@ -334,7 +334,7 @@ class SASTPlugin(BasePlugin):
     requires_authorization = True
     category = "sast"
 
-    def execute(self, context: dict) -> PluginResult:
+    def execute(self, context: dict[str, Any]) -> PluginResult:
         """Scan target paths for security issues."""
         raw_paths = context.get("target_paths", context.get("paths", ["."]))
         if isinstance(raw_paths, str):
@@ -428,7 +428,7 @@ class SASTPlugin(BasePlugin):
             },
         )
 
-    def dry_run(self, context: dict) -> PluginResult:
+    def dry_run(self, context: dict[str, Any]) -> PluginResult:
         """Simulate execution."""
         raw_paths = context.get("target_paths", context.get("paths", ["."]))
         if isinstance(raw_paths, str):

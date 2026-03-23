@@ -321,7 +321,7 @@ class TargetIdentityValidator:
                 loop.run_in_executor(None, socket.getaddrinfo, target, None),
                 timeout=TARGET_IDENTITY_DNS_TIMEOUT_SECONDS,
             )
-            forward_ips = list({addr[4][0] for addr in addrs})
+            forward_ips = list({str(addr[4][0]) for addr in addrs})
         except Exception as exc:
             log.debug("dns_forward_failed", target=target, error=str(exc))
 
@@ -332,7 +332,8 @@ class TargetIdentityValidator:
                 hostname_result = await asyncio.wait_for(
                     loop.run_in_executor(
                         None,
-                        lambda addr=ip: socket.gethostbyaddr(addr)[0],
+                        lambda addr: socket.gethostbyaddr(addr)[0],
+                        ip,
                     ),
                     timeout=TARGET_IDENTITY_DNS_TIMEOUT_SECONDS,
                 )

@@ -700,7 +700,7 @@ def test_mode_cmd(
         out.print(f"[red]✗ POLICY DENIED[/red] {e}")
         raise typer.Exit(2) from None
 
-    eng = orch.engagement
+    eng = orch.current_engagement
     if eng is None or eng.runtime_mode != RuntimeMode.TEST:
         out.print("[red]✗[/red] Engagement must use runtime_mode: test")
         raise typer.Exit(2)

@@ -164,7 +164,7 @@ class ActivationEngine:
         Tries Argon2id first, falls back to SHA-512.
         """
         try:
-            from argon2 import PasswordHasher  # type: ignore[import-untyped]
+            from argon2 import PasswordHasher
 
             ph = PasswordHasher(
                 time_cost=3,
@@ -186,8 +186,8 @@ class ActivationEngine:
         """Verify *code* against *stored_hash* with the given *algo*."""
         if algo == "argon2id":
             try:
-                from argon2 import PasswordHasher  # type: ignore[import-untyped]
-                from argon2.exceptions import VerifyMismatchError  # type: ignore[import-untyped]
+                from argon2 import PasswordHasher
+                from argon2.exceptions import VerifyMismatchError
 
                 ph = PasswordHasher()
                 try:

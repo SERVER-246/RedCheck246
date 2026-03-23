@@ -308,7 +308,7 @@ class SupplyChainPlugin(BasePlugin):
     requires_authorization = True
     category = "supply_chain"
 
-    def execute(self, context: dict) -> PluginResult:
+    def execute(self, context: dict[str, Any]) -> PluginResult:
         """Scan project dependencies for vulnerabilities, license issues, etc."""
         scan_root = Path(context.get("project_root", context.get("scan_root", ".")))
         engagement_id = context.get("engagement_id", "")
@@ -389,7 +389,7 @@ class SupplyChainPlugin(BasePlugin):
             metadata=metadata,
         )
 
-    def dry_run(self, context: dict) -> PluginResult:
+    def dry_run(self, context: dict[str, Any]) -> PluginResult:
         """Simulate execution."""
         scan_root = Path(context.get("project_root", context.get("scan_root", ".")))
         dep_files = discover_dependency_files(scan_root)

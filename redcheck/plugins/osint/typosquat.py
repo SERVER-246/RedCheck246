@@ -212,7 +212,7 @@ class TyposquatDetector(BasePlugin):
                         {
                             "domain": perm,
                             "ip": ip,
-                            "edit_distance": dist,
+                            "edit_distance": str(dist),
                         }
                     )
 

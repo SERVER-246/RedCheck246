@@ -173,7 +173,7 @@ class PluginRegistry:
         """Discover plugins via ``importlib.metadata`` entry points."""
         eps = importlib.metadata.entry_points()
         # Python 3.12+ returns a SelectableGroups; 3.10/3.11 returns dict
-        selected = eps.select(group=group) if hasattr(eps, "select") else eps.get(group, [])
+        selected = eps.select(group=group) if hasattr(eps, "select") else getattr(eps, group, [])
         for ep in selected:
             try:
                 plugin_class = ep.load()

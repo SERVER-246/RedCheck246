@@ -81,8 +81,28 @@ warn_unused_configs = true
 disallow_untyped_defs = true
 plugins = ["pydantic.mypy"]
 
-[tool.mypy.overrides]
+[[tool.mypy.overrides]]
 module = ["whois.*", "dns.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["weasyprint", "weasyprint.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["argon2", "argon2.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["bandit", "bandit.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["mutmut", "mutmut.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["tomli", "tomllib"]
 ignore_missing_imports = true
 
 [tool.bandit]

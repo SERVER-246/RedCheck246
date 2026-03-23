@@ -30,6 +30,7 @@ from redcheck.models import (
     RuntimeMode,
 )
 from redcheck.plugins.base_plugin import PluginRegistry
+from redcheck.plugins.base_plugin import PluginResult as _BasePluginResult
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -80,7 +81,7 @@ class TestModeController:
         self._orch = orchestrator
         self._otp = otp_engine
         self._prompt = prompt_callback or input
-        self._pipeline_results: dict[str, PluginResult] = {}
+        self._pipeline_results: dict[str, _BasePluginResult] = {}
         self._audit = get_audit_logger()
 
     async def run_test_mode(
@@ -247,14 +248,27 @@ class TestModeController:
         # Step 7 — Build report
         end_time = datetime.now(timezone.utc)
 
-        total_findings = sum(r.finding_count for r in self._pipeline_results.values())
+        total_findings = sum(len(r.findings) for r in self._pipeline_results.values())
         total_evidence = sum(len(r.evidence) for r in self._pipeline_results.values())
+
+        # Convert base_plugin.PluginResult → models.PluginResult for Pydantic
+        converted: dict[str, PluginResult] = {
+            name: PluginResult(
+                plugin_name=r.plugin_name,
+                success=r.success,
+                findings=r.findings,
+                evidence=r.evidence,
+                errors=r.errors,
+                metadata=r.metadata,
+            )
+            for name, r in self._pipeline_results.items()
+        }
 
         report = TestModeReport(
             engagement_id=engagement.engagement_id,
             plugins_executed=plugins_executed,
             plugins_skipped=plugins_skipped,
-            plugin_results=dict(self._pipeline_results),
+            plugin_results=converted,
             total_findings=total_findings,
             total_evidence=total_evidence,
             otp_challenges=otp_challenges,

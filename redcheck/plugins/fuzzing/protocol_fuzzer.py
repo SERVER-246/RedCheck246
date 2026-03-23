@@ -60,7 +60,7 @@ _XSS_REFLECTION_PATTERNS = [
 ]
 
 
-def _extract_targets(context: dict) -> list[dict[str, Any]]:
+def _extract_targets(context: dict[str, Any]) -> list[dict[str, Any]]:
     """Normalise target list from context."""
     raw = context.get("authorized_targets", [])
     targets = []
@@ -331,7 +331,7 @@ class FuzzingPlugin(BasePlugin):
     requires_authorization = True
     category = "fuzzing"
 
-    def execute(self, context: dict) -> PluginResult:
+    def execute(self, context: dict[str, Any]) -> PluginResult:
         """Run HTTP fuzzing against authorized targets."""
         targets = _extract_targets(context)
         all_findings: list[dict[str, Any]] = []
@@ -391,7 +391,7 @@ class FuzzingPlugin(BasePlugin):
 
         return findings
 
-    def dry_run(self, context: dict) -> PluginResult:
+    def dry_run(self, context: dict[str, Any]) -> PluginResult:
         """Simulate execution."""
         targets = _extract_targets(context)
         payload_count = sum(len(v) for v in ALL_PAYLOADS.values())

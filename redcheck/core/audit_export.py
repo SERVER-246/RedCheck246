@@ -109,4 +109,5 @@ class AuditExporter:
         except Exception as exc:
             raise ValueError(f"Audit trail decryption failed: {exc}") from exc
 
-        return json.loads(plaintext.decode("utf-8"))
+        result: dict[str, Any] = json.loads(plaintext.decode("utf-8"))
+        return result
