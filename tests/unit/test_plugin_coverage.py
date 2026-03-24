@@ -20,8 +20,9 @@ class TestCTLogMonitorExecute:
     def test_no_domains(self) -> None:
         plugin = CTLogMonitor()
         result = plugin.execute({"ct_domains": []})
-        assert result.success
-        assert result.metadata["mode"] == "no-domains"
+        assert result.success is False
+        assert result.metadata["mode"] == "no-input"
+        assert result.metadata["contract_status"] == "PARTIAL"
 
     def test_execute_with_mock(self) -> None:
         async def _run() -> None:

@@ -121,8 +121,9 @@ class TestTyposquatPlugin:
     def test_no_domains(self):
         plugin = TyposquatDetector()
         result = plugin.execute({"typosquat_domains": []})
-        assert result.success
-        assert result.metadata.get("mode") == "no-domains"
+        assert result.success is False
+        assert result.metadata.get("mode") == "no-input"
+        assert result.metadata.get("contract_status") == "PARTIAL"
 
     def test_dry_run(self):
         plugin = TyposquatDetector()
@@ -180,8 +181,9 @@ class TestCTLogPlugin:
     def test_no_domains(self):
         plugin = CTLogMonitor()
         result = plugin.execute({"ct_domains": []})
-        assert result.success
-        assert result.metadata.get("mode") == "no-domains"
+        assert result.success is False
+        assert result.metadata.get("mode") == "no-input"
+        assert result.metadata.get("contract_status") == "PARTIAL"
 
     def test_dry_run(self):
         plugin = CTLogMonitor()
@@ -206,7 +208,7 @@ class TestCTLogPlugin:
 
         # Just test dry run and metadata, real API mocking is complex
         result = plugin.execute({"ct_domains": []})
-        assert result.success
+        assert result.success is False
 
 
 # ---------------------------------------------------------------------------
@@ -241,8 +243,9 @@ class TestBreachLookupPlugin:
     def test_no_passwords(self):
         plugin = BreachLookup()
         result = plugin.execute({"breach_passwords": []})
-        assert result.success
-        assert result.metadata.get("mode") == "no-passwords"
+        assert result.success is False
+        assert result.metadata.get("mode") == "no-input"
+        assert result.metadata.get("contract_status") == "PARTIAL"
 
     def test_dry_run(self):
         plugin = BreachLookup()

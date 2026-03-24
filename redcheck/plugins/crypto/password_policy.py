@@ -160,6 +160,21 @@ class PasswordEntropyScorer(BasePlugin):
 
         # Analyze individual passwords (masked in output)
         passwords: list[str] = context.get("passwords", [])
+        policies: list[dict[str, Any]] = context.get("password_policies", [])
+
+        if not passwords and not policies:
+            return PluginResult(
+                plugin_name=self.name,
+                success=False,
+                findings=[],
+                errors=["No passwords or password_policies in context"],
+                metadata={
+                    "mode": "no-input",
+                    "contract_status": "PARTIAL",
+                    "duration_ms": (time.monotonic() - start) * 1000,
+                },
+            )
+
         for pwd in passwords:
             entropy = calculate_entropy(pwd)
             patterns = check_weak_patterns(pwd)
@@ -185,7 +200,6 @@ class PasswordEntropyScorer(BasePlugin):
             )
 
         # Evaluate password policies
-        policies: list[dict[str, Any]] = context.get("password_policies", [])
         for i, policy in enumerate(policies):
             eval_result = evaluate_policy(policy)
             severity = eval_result["rating"]

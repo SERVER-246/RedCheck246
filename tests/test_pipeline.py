@@ -14,7 +14,7 @@ from redcheck.core.pipeline import (
     PipelineExecutor,
     _extract_services,
 )
-from redcheck.exceptions import ChainModeError, PipelineError
+from redcheck.exceptions import ChainModeError
 from redcheck.models import (
     EngagementContext,
     Finding,

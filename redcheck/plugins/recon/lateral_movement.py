@@ -104,9 +104,13 @@ class LateralMovementAnalyzer(BasePlugin):
         if not all_hosts:
             return PluginResult(
                 plugin_name=self.name,
-                success=True,
+                success=False,
                 findings=[],
-                metadata={"duration_ms": (time.monotonic() - start) * 1000},
+                errors=["No hosts from upstream or targets — enable chain_mode"],
+                metadata={
+                    "duration_ms": (time.monotonic() - start) * 1000,
+                    "contract_status": "PARTIAL",
+                },
             )
 
         # Module 1: Trust Relationship Analysis

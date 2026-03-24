@@ -87,9 +87,10 @@ class CTLogMonitor(BasePlugin):
         if not domains:
             return PluginResult(
                 plugin_name=self.name,
-                success=True,
+                success=False,
                 findings=[],
-                metadata={"mode": "no-domains"},
+                errors=["No ct_domains in context — provide domains or enable chain_mode"],
+                metadata={"mode": "no-input", "contract_status": "PARTIAL"},
             )
 
         async with httpx.AsyncClient(verify=scanning_ssl_context(), timeout=30.0) as client:

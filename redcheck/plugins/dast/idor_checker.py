@@ -87,9 +87,10 @@ class IDORValidator(BasePlugin):
         if not endpoints:
             return PluginResult(
                 plugin_name=self.name,
-                success=True,
+                success=False,
                 findings=[],
-                metadata={"mode": "no-endpoints", "description": "No IDOR endpoints configured"},
+                errors=["No idor_endpoints in context — provide endpoints or enable chain_mode"],
+                metadata={"mode": "no-input", "contract_status": "PARTIAL"},
             )
 
         async with httpx.AsyncClient(verify=scanning_ssl_context(), timeout=10.0) as client:

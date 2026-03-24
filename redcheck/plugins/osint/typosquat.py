@@ -193,9 +193,10 @@ class TyposquatDetector(BasePlugin):
         if not domains:
             return PluginResult(
                 plugin_name=self.name,
-                success=True,
+                success=False,
                 findings=[],
-                metadata={"mode": "no-domains"},
+                errors=["No typosquat_domains in context — provide domains or enable chain_mode"],
+                metadata={"mode": "no-input", "contract_status": "PARTIAL"},
             )
 
         for domain in domains:

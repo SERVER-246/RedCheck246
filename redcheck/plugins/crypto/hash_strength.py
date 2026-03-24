@@ -208,9 +208,10 @@ class OfflineHashStrengthAnalyzer(BasePlugin):
         if not hashes:
             return PluginResult(
                 plugin_name=self.name,
-                success=True,
+                success=False,
                 findings=[],
-                metadata={"mode": "no-hashes"},
+                errors=["No hashes in context — provide hashes or enable chain_mode"],
+                metadata={"mode": "no-input", "contract_status": "PARTIAL"},
             )
 
         for entry in hashes:

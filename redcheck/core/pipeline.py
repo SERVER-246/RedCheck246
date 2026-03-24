@@ -74,6 +74,55 @@ def _extract_services(results: dict[str, PluginResult]) -> list[dict[str, Any]]:
     return services
 
 
+def _extract_credentials(results: dict[str, PluginResult]) -> dict[str, list[str]]:
+    """Extract passwords and hashes from upstream SAST findings."""
+    passwords: list[str] = []
+    hashes: list[str] = []
+    for result in results.values():
+        for finding in result.findings:
+            ft = getattr(finding, "finding_type", "")
+            meta = finding.metadata if hasattr(finding, "metadata") else {}
+            detail = getattr(finding, "detail", "")
+
+            if ft in ("hardcoded_secret", "hardcoded_password", "hardcoded_credential"):
+                val = meta.get("secret_value") or meta.get("password", "")
+                if val:
+                    passwords.append(val)
+            elif ft in ("hardcoded_hash", "weak_hash"):
+                val = meta.get("hash_value", "")
+                if val:
+                    hashes.append(val)
+            elif "password" in ft.lower() and meta.get("value"):
+                passwords.append(meta["value"])
+            elif "hash" in detail.lower() and meta.get("value"):
+                hashes.append(meta["value"])
+    return {"passwords": passwords, "hashes": hashes}
+
+
+def _extract_endpoints(results: dict[str, PluginResult]) -> list[str]:
+    """Extract discovered web endpoints from DAST/recon results."""
+    endpoints: list[str] = []
+    for result in results.values():
+        for finding in result.findings:
+            meta = finding.metadata if hasattr(finding, "metadata") else {}
+            url = meta.get("url") or meta.get("endpoint", "")
+            if url and url not in endpoints:
+                endpoints.append(url)
+    return endpoints
+
+
+def _extract_packages(results: dict[str, PluginResult]) -> list[str]:
+    """Extract package names from supply-chain-audit results."""
+    packages: list[str] = []
+    for result in results.values():
+        for finding in result.findings:
+            meta = finding.metadata if hasattr(finding, "metadata") else {}
+            pkg = meta.get("package") or meta.get("package_name", "")
+            if pkg and pkg not in packages:
+                packages.append(pkg)
+    return packages
+
+
 class PipelineExecutor:
     """Ordered plugin execution with cross-plugin data flow."""
 
@@ -138,6 +187,31 @@ class PipelineExecutor:
                 ]
                 extra_context["upstream_plugins"] = list(self._results.keys())
                 extra_context["discovered_services"] = _extract_services(self._results)
+
+                # Auto-populate context keys for downstream plugins
+                creds = _extract_credentials(self._results)
+                if creds["passwords"]:
+                    extra_context.setdefault("breach_passwords", creds["passwords"])
+                    extra_context.setdefault("passwords", creds["passwords"])
+                if creds["hashes"]:
+                    extra_context.setdefault("hashes", creds["hashes"])
+
+                endpoints = _extract_endpoints(self._results)
+                if endpoints:
+                    extra_context.setdefault("idor_endpoints", endpoints)
+
+                packages = _extract_packages(self._results)
+                if packages:
+                    extra_context.setdefault("typosquat_domains", packages)
+
+                # Provide ct_domains / typosquat_domains from engagement targets
+                targets = engagement.targets or []
+                if targets:
+                    extra_context.setdefault("ct_domains", list(targets))
+                    extra_context.setdefault(
+                        "typosquat_domains",
+                        extra_context.get("typosquat_domains", list(targets)),
+                    )
 
             try:
                 result = await self._orch.arun_plugin(

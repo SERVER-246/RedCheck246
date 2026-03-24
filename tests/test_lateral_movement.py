@@ -62,8 +62,9 @@ class TestLateralMovementEmpty:
     def test_no_upstream_no_targets(self, plugin: LateralMovementAnalyzer) -> None:
         result = plugin.execute({})
         assert isinstance(result, PluginResult)
-        assert result.success
+        assert result.success is False
         assert result.findings == []
+        assert result.metadata.get("contract_status") == "PARTIAL"
 
     def test_targets_only(self, plugin: LateralMovementAnalyzer) -> None:
         result = plugin.execute({"targets": ["10.0.0.1"]})
