@@ -18,8 +18,10 @@ from typing import Any
 import structlog
 
 from redcheck.core.audit import get_audit_logger
+from redcheck.core.contract_validator import validate_contract
 from redcheck.core.enrichment import enrich_plugin_result
 from redcheck.core.evidence_store import EvidenceStore
+from redcheck.core.fake_metric_detector import detect_fake_metrics
 from redcheck.core.policy_engine import get_policy_engine
 from redcheck.exceptions import (
     ActivationError,
@@ -245,6 +247,18 @@ class Orchestrator:
         # Finding enrichment (CWE, CVSS, remediation, MITRE)
         enrich_plugin_result(result)
 
+        # Mode separation (C6)
+        if dry_run:
+            result.metadata["execution_mode"] = "dry_run"
+        elif not result.metadata.get("execution_mode"):
+            result.metadata["execution_mode"] = "real"
+
+        # Fake metric detection (FM-1..FM-3)
+        detect_fake_metrics(result)
+
+        # Contract validation (C1-C6)
+        validate_contract(result)
+
         log.info(
             "plugin_complete",
             plugin=plugin_name,
@@ -425,6 +439,18 @@ class Orchestrator:
 
         # Finding enrichment (CWE, CVSS, remediation, MITRE)
         enrich_plugin_result(result)
+
+        # Mode separation (C6)
+        if dry_run:
+            result.metadata["execution_mode"] = "dry_run"
+        elif not result.metadata.get("execution_mode"):
+            result.metadata["execution_mode"] = "real"
+
+        # Fake metric detection (FM-1..FM-3)
+        detect_fake_metrics(result)
+
+        # Contract validation (C1-C6)
+        validate_contract(result)
 
         log.info(
             "async_plugin_complete",
