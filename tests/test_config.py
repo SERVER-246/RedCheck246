@@ -22,7 +22,7 @@ class TestConfigDefaults:
         from redcheck.models import RuntimeMode
 
         cfg = RedCheckConfig()
-        assert cfg.runtime_mode == RuntimeMode.DEV
+        assert cfg.runtime_mode == RuntimeMode.RESEARCH
 
     def test_resolved_paths_relative_to_project_root(self, tmp_path):
         cfg = RedCheckConfig(project_root=tmp_path)

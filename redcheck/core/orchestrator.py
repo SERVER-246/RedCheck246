@@ -18,6 +18,7 @@ from typing import Any
 import structlog
 
 from redcheck.core.audit import get_audit_logger
+from redcheck.core.enrichment import enrich_plugin_result
 from redcheck.core.evidence_store import EvidenceStore
 from redcheck.core.policy_engine import get_policy_engine
 from redcheck.exceptions import (
@@ -236,9 +237,13 @@ class Orchestrator:
 
         duration_ms = int((time.monotonic() - start_time) * 1000)
         result.metadata["duration_ms"] = duration_ms
+        result.metadata["duration_seconds"] = round(duration_ms / 1000, 3)
 
         # Evidence indexing (opt-in)
         self._index_evidence(result)
+
+        # Finding enrichment (CWE, CVSS, remediation, MITRE)
+        enrich_plugin_result(result)
 
         log.info(
             "plugin_complete",
@@ -413,9 +418,13 @@ class Orchestrator:
 
         duration_ms = int((time.monotonic() - start_time) * 1000)
         result.metadata["duration_ms"] = duration_ms
+        result.metadata["duration_seconds"] = round(duration_ms / 1000, 3)
 
         # Evidence indexing (opt-in)
         self._index_evidence(result)
+
+        # Finding enrichment (CWE, CVSS, remediation, MITRE)
+        enrich_plugin_result(result)
 
         log.info(
             "async_plugin_complete",

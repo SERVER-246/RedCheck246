@@ -175,9 +175,10 @@ class TestCapabilityMatrix:
         for cap in PluginCapability:
             assert _is_capability_allowed(RuntimeMode.PRODUCTION, cap) is True
 
-    def test_research_allows_all(self):
-        for cap in PluginCapability:
-            assert _is_capability_allowed(RuntimeMode.RESEARCH, cap) is True
+    def test_research_allows_passive_and_active(self):
+        assert _is_capability_allowed(RuntimeMode.RESEARCH, PluginCapability.PASSIVE) is True
+        assert _is_capability_allowed(RuntimeMode.RESEARCH, PluginCapability.ACTIVE) is True
+        assert _is_capability_allowed(RuntimeMode.RESEARCH, PluginCapability.DESTRUCTIVE) is False
 
 
 # ---------------------------------------------------------------------------

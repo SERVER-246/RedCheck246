@@ -222,19 +222,21 @@ class TestPipelineExecutor:
         asyncio.run(pipe.execute_pipeline(eng, ["recon", "cve-mapper"], chain=True))
         assert len(captured_extra[1]["discovered_services"]) == 1
 
-    def test_plugin_failure_raises_pipeline_error(self):
+    def test_plugin_failure_isolated_not_raised(self):
         orch = MagicMock(spec=Orchestrator)
         orch.arun_plugin = AsyncMock(side_effect=RuntimeError("boom"))
 
         pipe = PipelineExecutor(orch)
         eng = _make_engagement()
 
-        with pytest.raises(PipelineError, match="boom") as exc_info:
-            asyncio.run(pipe.execute_pipeline(eng, ["bad_plugin"]))
-        assert exc_info.value.failed_plugin == "bad_plugin"
+        # P8: errors are isolated — pipeline continues, no exception raised
+        asyncio.run(pipe.execute_pipeline(eng, ["bad_plugin"]))
+        result = pipe.results["bad_plugin"]
+        assert result.success is False
+        assert result.metadata.get("isolated") is True
 
     def test_partial_results_on_failure(self):
-        """When 2nd plugin fails, 1st plugin result is still accessible."""
+        """When 2nd plugin fails, both results are accessible."""
         call_count = 0
 
         async def mock_run(name, _eng, *, dry_run=False, extra_context=None):
@@ -250,12 +252,14 @@ class TestPipelineExecutor:
         pipe = PipelineExecutor(orch)
         eng = _make_engagement()
 
-        with pytest.raises(PipelineError):
-            asyncio.run(pipe.execute_pipeline(eng, ["good", "bad"]))
+        # P8: pipeline continues past failure
+        asyncio.run(pipe.execute_pipeline(eng, ["good", "bad"]))
 
-        # First plugin's result should still be available
         assert "good" in pipe.results
         assert pipe.results["good"].success is True
+        assert "bad" in pipe.results
+        assert pipe.results["bad"].success is False
+        assert pipe.results["bad"].metadata.get("isolated") is True
 
     def test_dry_run_forwarded(self):
         orch = MagicMock(spec=Orchestrator)

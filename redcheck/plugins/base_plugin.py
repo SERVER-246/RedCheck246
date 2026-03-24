@@ -112,6 +112,28 @@ class BasePlugin(ABC):
             return False, "Empty context"
         return True, "Context valid"
 
+    def capture_evidence(
+        self,
+        context: dict[str, Any],
+        data: bytes,
+        evidence_type: str,
+        *,
+        finding_ref: str | None = None,
+    ) -> Any:
+        """Store evidence via the engagement's evidence store.
+
+        Returns the Evidence model instance, or None if no store is available.
+        """
+        store = context.get("evidence_store")
+        if store is None:
+            return None
+        return store.store(
+            data,
+            evidence_type,
+            finding_ref=finding_ref,
+            plugin_name=self.name,
+        )
+
     def __repr__(self) -> str:
         auth = "AUTH-REQUIRED" if self.requires_authorization else "NO-AUTH"
         return f"<Plugin:{self.name} v{self.version} [{auth}] {self.capability.value}>"
