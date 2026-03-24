@@ -10,12 +10,12 @@ from typing import TYPE_CHECKING, Any
 
 import structlog
 
-from redcheck.exceptions import ChainModeError, PipelineError
+from redcheck.exceptions import ChainModeError, PipelineError  # noqa: F401
+from redcheck.plugins.base_plugin import PluginResult
 
 if TYPE_CHECKING:
     from redcheck.core.orchestrator import Orchestrator
     from redcheck.models import EngagementContext
-    from redcheck.plugins.base_plugin import PluginResult
 
 log = structlog.get_logger(__name__)
 
@@ -56,6 +56,18 @@ def _extract_services(results: dict[str, PluginResult]) -> list[dict[str, Any]]:
         for finding in result.findings:
             fd = finding.model_dump() if hasattr(finding, "model_dump") else {}
             finding_type = fd.get("finding_type", "")
+            meta = fd.get("metadata") or {}
+
+            # Primary path: structured open_port findings from network-scanner
+            if finding_type == "open_port":
+                svc = meta.get("service_name", "")
+                ver = meta.get("service_version", "")
+                port = meta.get("port", "")
+                if svc:
+                    services.append({"service": svc, "version": ver, "port": str(port)})
+                continue
+
+            # Fallback: keyword match for other service-related findings
             detail = fd.get("detail", "")
             if "service" in finding_type.lower() or "service" in detail.lower():
                 services.append(fd)
@@ -141,11 +153,14 @@ class PipelineExecutor:
                     error=str(exc),
                     engagement_id=engagement.engagement_id,
                 )
-                raise PipelineError(
-                    f"Plugin '{plugin_name}' failed: {exc}",
-                    failed_plugin=plugin_name,
-                    engagement_id=engagement.engagement_id,
-                ) from exc
+                self._results[plugin_name] = PluginResult(
+                    plugin_name=plugin_name,
+                    success=False,
+                    findings=[],
+                    errors=[f"Execution failed: {exc}"],
+                    metadata={"error_type": type(exc).__name__, "isolated": True},
+                )
+                continue
 
             self._results[plugin_name] = result
             log.info(

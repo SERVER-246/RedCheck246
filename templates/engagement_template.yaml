@@ -42,21 +42,24 @@ notes: |
   - Evidence must be encrypted at rest.
   - Report findings within 24 hours of discovery.
 
-# ── Test Mode (optional) ────────────────────────────────────────
-# Uncomment to enable Test Mode capabilities:
-# runtime_mode: "test"
-# otp_email: "authorized-operator@example.com"
+# ── RuntimeMode ─────────────────────────────────────────────────
+# Options:
+#   DEV       → PASSIVE only (dns, whois). Most plugins blocked.
+#   RESEARCH  → PASSIVE + ACTIVE (scanning, header checks). DEFAULT.
+#   TEST      → Full capabilities with simulated data allowed.
+#   LIVE      → Full capabilities. Requires signed RoE.
+runtime_mode: "research"
 
 # ── Offensive Controls ──────────────────────────────────────────
 # Required for plugins that need specific authorization gates.
-# Uncomment and set to true as needed:
-# offensive_controls:
-#   allow_auth_testing: true         # auth-session-tester, idor-validator
-#   allow_exploit_validation: true   # injection-poc-simulator, exploit-verifier
-#   allow_data_sampling: false
-#   allow_credential_spraying: false
-#   allow_privesc_probing: false
-#   chain_mode: false                # enable chained plugin execution
+offensive_controls:
+  chain_mode: true                   # enable chained plugin execution
+  max_chain_depth: 3                 # safety limit for chain depth
+  # allow_auth_testing: false        # auth-session-tester, idor-validator
+  # allow_exploit_validation: false  # injection-poc-simulator, exploit-verifier
+  # allow_data_sampling: false
+  # allow_credential_spraying: false
+  # allow_privesc_probing: false
 
 # HMAC-SHA256 signature — set via 'redcheck verify-roe' or manually
 signature: ""

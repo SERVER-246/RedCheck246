@@ -40,7 +40,7 @@ class RedCheckConfig(BaseSettings):
     evidence_dir: Path | None = None
 
     # Runtime mode (Spec 4)
-    runtime_mode: RuntimeMode = RuntimeMode.DEV
+    runtime_mode: RuntimeMode = RuntimeMode.RESEARCH
 
     # Security
     require_signed_roe: bool = True

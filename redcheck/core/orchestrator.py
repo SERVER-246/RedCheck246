@@ -65,7 +65,7 @@ _CAPABILITY_MODE_MATRIX: dict[RuntimeMode, dict[PluginCapability, bool]] = {
     RuntimeMode.RESEARCH: {
         PluginCapability.PASSIVE: True,
         PluginCapability.ACTIVE: True,
-        PluginCapability.DESTRUCTIVE: True,
+        PluginCapability.DESTRUCTIVE: False,
     },
     RuntimeMode.TEST: {
         PluginCapability.PASSIVE: True,
