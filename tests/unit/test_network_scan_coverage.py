@@ -84,6 +84,7 @@ class TestNetworkScanner:
         # Mock PacketCraft to avoid real network calls
         plugin._pkt = MagicMock()
         plugin._pkt.tcp_syn_probe = AsyncMock(return_value=(True, 5.0))
+        plugin._pkt.banner_grab = AsyncMock(return_value="")
 
         result = plugin.execute(
             {
@@ -97,6 +98,7 @@ class TestNetworkScanner:
         plugin = NetworkScanner()
         plugin._pkt = MagicMock()
         plugin._pkt.tcp_syn_probe = AsyncMock(return_value=(False, 0.0))
+        plugin._pkt.banner_grab = AsyncMock(return_value="")
 
         result = plugin.execute(
             {

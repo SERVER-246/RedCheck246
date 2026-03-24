@@ -18,6 +18,7 @@ from typing import Any
 import structlog
 
 from redcheck.core.audit import get_audit_logger
+from redcheck.core.evidence_store import EvidenceStore
 from redcheck.core.policy_engine import get_policy_engine
 from redcheck.exceptions import (
     ActivationError,
@@ -87,7 +88,7 @@ class Orchestrator:
         self.audit = get_audit_logger()
         self._current_engagement: EngagementContext | None = None
         self._signature_verifier = signature_verifier
-        self._evidence_store: Any | None = None
+        self._evidence_store: EvidenceStore | None = None
         self._trusted_plugin_hashes: dict[str, str] | None = None
 
     @property
@@ -113,6 +114,12 @@ class Orchestrator:
 
         ctx = _build_engagement_from_roe(roe_data, str(roe_path))
         self._current_engagement = ctx
+
+        # Initialize evidence store from RoE path
+        if ctx.roe_path:
+            evidence_dir = Path(ctx.roe_path).resolve().parent / "evidence"
+            self._evidence_store = EvidenceStore(evidence_dir)
+            log.debug("evidence_store_initialized", path=str(evidence_dir))
 
         log.info(
             "engagement_loaded",
@@ -194,6 +201,7 @@ class Orchestrator:
 
         # Policy gate
         if plugin.requires_authorization:
+            context["plugin_category"] = getattr(plugin, "category", "")
             self.policy.authorize(
                 plugin_name=plugin_name,
                 engagement=context,
@@ -302,6 +310,22 @@ class Orchestrator:
         if not engagement.activation_verified:
             raise ActivationError("Activation code not verified", engagement_id=eid)
 
+        # Step 5b — Enforce allowed_tests
+        if engagement.allowed_tests:
+            plugin_category = getattr(plugin, "category", "")
+            name_prefix = plugin_name.split(".")[0] if "." in plugin_name else ""
+            if (
+                plugin_name not in engagement.allowed_tests
+                and plugin_category not in engagement.allowed_tests
+                and name_prefix not in engagement.allowed_tests
+            ):
+                raise PolicyDeniedException(
+                    plugin_name,
+                    f"Plugin '{plugin_name}' not in allowed tests: "
+                    f"{engagement.allowed_tests}",
+                    engagement_id=eid,
+                )
+
         # Step 6 — RuntimeMode × PluginCapability matrix
         if not _is_capability_allowed(engagement.runtime_mode, plugin.capability):
             raise PolicyDeniedException(
@@ -341,6 +365,7 @@ class Orchestrator:
                 engagement_id=eid,
             )
             context = engagement.model_dump(mode="json")
+            context["plugin_category"] = getattr(plugin, "category", "")
             if extra_context:
                 context.update(extra_context)
             return plugin.dry_run(context)
@@ -348,6 +373,7 @@ class Orchestrator:
         # Step 11 — Execute with timeout
         timeout = getattr(plugin, "timeout_seconds", 60)
         context = engagement.model_dump(mode="json")
+        context["plugin_category"] = getattr(plugin, "category", "")
         if extra_context:
             context.update(extra_context)
 
@@ -425,15 +451,25 @@ class Orchestrator:
         """Index any evidence attached to a plugin result."""
         if self._evidence_store is None:
             return
-        evidence_list = getattr(result, "evidence", None)
-        if not evidence_list:
+        if not result.evidence:
             return
-        for ev in evidence_list:
-            log.debug(
-                "evidence_indexed",
-                plugin=result.plugin_name,
-                sha256=getattr(ev, "sha256", "")[:12],
-            )
+        for ev in result.evidence:
+            try:
+                ev_path = Path(ev.path)
+                data = ev_path.read_bytes() if ev_path.is_file() else ev.sha256.encode("utf-8")
+                self._evidence_store.store(
+                    data=data,
+                    evidence_type=ev.evidence_type,
+                    finding_ref=ev.provenance_tag,
+                    plugin_name=result.plugin_name,
+                )
+            except Exception:
+                log.warning(
+                    "evidence_index_failed",
+                    plugin=result.plugin_name,
+                    sha256=ev.sha256[:12],
+                    exc_info=True,
+                )
 
     def _verify_plugin_hash(self, plugin_name: str, plugin: Any) -> None:
         """Verify plugin source file hash against trusted hashes."""

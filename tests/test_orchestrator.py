@@ -192,7 +192,10 @@ def _make_engagement(**kwargs) -> EngagementContext:
         "engagement_id": "ASYNC-001",
         "authorizer": "Admin",
         "targets": ["testhost.local"],
-        "allowed_tests": ["passive-recon", "stub-test"],
+        "allowed_tests": [
+            "passive-recon", "stub-test", "active-test",
+            "destructive-test", "async-stub", "slow-test",
+        ],
         "start_time_utc": now - timedelta(hours=1),
         "end_time_utc": now + timedelta(hours=1),
         "roe_signed": True,

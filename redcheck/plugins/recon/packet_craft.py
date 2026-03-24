@@ -206,3 +206,24 @@ class PacketCraft:
         except (OSError, asyncio.TimeoutError):
             latency = (time.monotonic() - start) * 1000
             return False, latency
+
+    async def banner_grab(self, target: str, port: int) -> str:
+        """Grab the service banner from an open TCP port.
+
+        Connects, waits briefly for the server to send its banner,
+        and returns the decoded string (or empty on failure/timeout).
+        """
+        try:
+            reader, writer = await asyncio.wait_for(
+                asyncio.open_connection(target, port),
+                timeout=self._timeout,
+            )
+            try:
+                data = await asyncio.wait_for(reader.read(1024), timeout=2.0)
+                return data.decode("utf-8", errors="replace").strip()
+            finally:
+                writer.close()
+                with contextlib.suppress(Exception):
+                    await writer.wait_closed()
+        except (OSError, asyncio.TimeoutError):
+            return ""

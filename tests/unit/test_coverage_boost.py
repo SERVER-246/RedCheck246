@@ -296,6 +296,7 @@ class TestNetworkScanCoverageBoost:
         plugin = NetworkScanner()
         plugin._pkt = MagicMock()
         plugin._pkt.tcp_syn_probe = AsyncMock(return_value=(False, 0.0))
+        plugin._pkt.banner_grab = AsyncMock(return_value="")
         result = plugin.execute({"targets": ["127.0.0.1"]})
         assert result.success
 
@@ -304,6 +305,7 @@ class TestNetworkScanCoverageBoost:
         plugin = NetworkScanner()
         plugin._pkt = MagicMock()
         plugin._pkt.tcp_syn_probe = AsyncMock(return_value=(False, 0.0))
+        plugin._pkt.banner_grab = AsyncMock(return_value="")
 
         with patch(
             "redcheck.plugins.recon.network_scan.ScopeValidator.validate_targets",

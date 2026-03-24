@@ -189,12 +189,19 @@ class PolicyEngine:
             return False, "Activation code has not been verified"
 
         allowed_tests = eng_data.get("allowed_tests", [])
-        plugin_category = plugin_name.split(".")[0] if "." in plugin_name else plugin_name
-        if allowed_tests and plugin_category not in allowed_tests:
-            return (
-                False,
-                f"Plugin '{plugin_category}' not in allowed tests: {allowed_tests}",
-            )
+        if allowed_tests:
+            # Check plugin name, category, or name prefix against allowed list
+            plugin_category = eng_data.get("plugin_category", "")
+            name_prefix = plugin_name.split(".")[0] if "." in plugin_name else ""
+            if (
+                plugin_name not in allowed_tests
+                and plugin_category not in allowed_tests
+                and name_prefix not in allowed_tests
+            ):
+                return (
+                    False,
+                    f"Plugin '{plugin_name}' not in allowed tests: {allowed_tests}",
+                )
 
         start_str = eng_data.get("start_time_utc")
         end_str = eng_data.get("end_time_utc")

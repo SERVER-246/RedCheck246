@@ -310,8 +310,9 @@ class NetworkScanner(BasePlugin):
 
                 if is_open:
                     open_ports.append(port)
-                    # Try banner grab
-                    svc_name, confidence = self._detector.detect("", port)
+                    # Grab banner from the open port
+                    banner = await self._pkt.banner_grab(host, port)
+                    svc_name, confidence = self._detector.detect(banner, port)
                     services[port] = svc_name
 
                     findings.append(
