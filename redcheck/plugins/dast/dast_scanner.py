@@ -10,6 +10,7 @@ Capabilities:
   4. Cookie Security        — Secure, HttpOnly, SameSite flags
   5. Directory Discovery    — sensitive-path enumeration
   6. Redirect Analysis      — HTTP→HTTPS, open redirect detection
+  7. CORS Misconfiguration  — origin reflection, wildcard credentials
 """
 
 from __future__ import annotations
@@ -434,6 +435,68 @@ async def check_redirects(host: str) -> list[dict[str, Any]]:
 
 
 # ---------------------------------------------------------------------------
+# CORS misconfiguration detection
+# ---------------------------------------------------------------------------
+
+_CORS_ORIGINS: list[str] = [
+    "https://evil.com",
+    "null",
+]
+
+
+async def check_cors(url: str) -> list[dict[str, Any]]:
+    """Test for CORS misconfigurations using crafted Origin headers."""
+    findings: list[dict[str, Any]] = []
+    try:
+        async with httpx.AsyncClient(
+            timeout=_HTTP_TIMEOUT,
+            verify=scanning_ssl_context(),
+        ) as client:
+            for origin in _CORS_ORIGINS:
+                resp = await client.get(url, headers={"Origin": origin})
+                acao = resp.headers.get("access-control-allow-origin", "")
+                acac = resp.headers.get("access-control-allow-credentials", "")
+
+                if acao == "*" and acac.lower() == "true":
+                    findings.append(
+                        {
+                            "type": "dast_cors_wildcard_creds",
+                            "target": url,
+                            "detail": (
+                                "CORS allows wildcard origin with credentials — "
+                                "browsers block this, but configuration reveals intent"
+                            ),
+                            "data": {
+                                "severity": "HIGH",
+                                "origin_sent": origin,
+                                "acao": acao,
+                                "acac": acac,
+                            },
+                        }
+                    )
+                elif acao == origin:
+                    severity = "CRITICAL" if origin == "null" else "HIGH"
+                    findings.append(
+                        {
+                            "type": "dast_cors_reflect",
+                            "target": url,
+                            "detail": (
+                                f"CORS reflects arbitrary origin '{origin}'"
+                            ),
+                            "data": {
+                                "severity": severity,
+                                "origin_sent": origin,
+                                "acao": acao,
+                                "acac": acac,
+                            },
+                        }
+                    )
+    except Exception:  # noqa: S110
+        pass
+    return findings
+
+
+# ---------------------------------------------------------------------------
 # Plugin class
 # ---------------------------------------------------------------------------
 
@@ -497,13 +560,14 @@ class DASTPlugin(BasePlugin):
         if 443 in ports:
             findings.extend(await check_ssl_tls(host, 443))
 
-        # 2-6 can run concurrently
+        # 2-7 can run concurrently
         results = await asyncio.gather(
             check_security_headers(base_url),
             check_http_methods(base_url),
             check_cookies(base_url),
             discover_paths(base_url),
             check_redirects(host),
+            check_cors(base_url),
             return_exceptions=True,
         )
 
@@ -537,11 +601,12 @@ class DASTPlugin(BasePlugin):
                     "cookies",
                     "path_discovery",
                     "redirects",
+                    "cors",
                 ],
                 "description": (
                     "Would perform HTTP security header analysis, SSL/TLS assessment, "
                     "HTTP method testing, cookie security checks, sensitive path discovery, "
-                    "and redirect analysis"
+                    "redirect analysis, and CORS misconfiguration detection"
                 ),
             },
         )

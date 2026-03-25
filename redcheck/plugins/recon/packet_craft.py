@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import socket
+import ssl
 import time
 from dataclasses import dataclass, field
 from typing import Any
@@ -227,3 +228,73 @@ class PacketCraft:
                     await writer.wait_closed()
         except (OSError, asyncio.TimeoutError):
             return ""
+
+    # Ports where no unsolicited banner is sent — the client must speak first.
+    _HTTP_PORTS: frozenset[int] = frozenset({80, 8080, 8000, 8888})
+    _HTTPS_PORTS: frozenset[int] = frozenset({443, 8443})
+
+    async def active_banner_probe(self, target: str, port: int) -> str:
+        """Send a protocol-appropriate probe when passive banner_grab is empty.
+
+        For HTTP ports, sends a minimal ``GET / HTTP/1.0`` request.
+        For HTTPS ports, performs a TLS handshake then sends the same request.
+        Returns the first line(s) of the response or empty on failure.
+        """
+        request = b"GET / HTTP/1.0\r\nHost: " + target.encode() + b"\r\n\r\n"
+        try:
+            ssl_ctx: ssl.SSLContext | None = None
+            if port in self._HTTPS_PORTS:
+                ssl_ctx = ssl.create_default_context()
+                ssl_ctx.check_hostname = False
+                ssl_ctx.verify_mode = ssl.CERT_NONE
+            reader, writer = await asyncio.wait_for(
+                asyncio.open_connection(target, port, ssl=ssl_ctx),
+                timeout=self._timeout,
+            )
+            try:
+                writer.write(request)
+                await writer.drain()
+                data = await asyncio.wait_for(reader.read(2048), timeout=3.0)
+                return data.decode("utf-8", errors="replace").strip()
+            finally:
+                writer.close()
+                with contextlib.suppress(Exception):
+                    await writer.wait_closed()
+        except (OSError, asyncio.TimeoutError, ssl.SSLError):
+            return ""
+
+    async def tls_cert_info(self, target: str, port: int) -> dict[str, Any]:
+        """Retrieve the TLS peer certificate for *target:port*.
+
+        Returns a dict with ``subject``, ``issuer``, ``notBefore``,
+        ``notAfter``, ``serialNumber``, and ``subjectAltName``
+        when available, or an empty dict on failure.
+        """
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        try:
+            reader, writer = await asyncio.wait_for(
+                asyncio.open_connection(target, port, ssl=ctx),
+                timeout=self._timeout,
+            )
+            try:
+                transport = writer.transport
+                ssl_obj = transport.get_extra_info("ssl_object") if transport else None
+                if ssl_obj is None:
+                    return {}
+                cert: dict[str, Any] = ssl_obj.getpeercert() or {}
+                return {
+                    "subject": cert.get("subject"),
+                    "issuer": cert.get("issuer"),
+                    "notBefore": cert.get("notBefore"),
+                    "notAfter": cert.get("notAfter"),
+                    "serialNumber": cert.get("serialNumber"),
+                    "subjectAltName": cert.get("subjectAltName"),
+                }
+            finally:
+                writer.close()
+                with contextlib.suppress(Exception):
+                    await writer.wait_closed()
+        except (OSError, asyncio.TimeoutError, ssl.SSLError):
+            return {}

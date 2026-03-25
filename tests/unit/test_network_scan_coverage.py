@@ -85,6 +85,10 @@ class TestNetworkScanner:
         plugin._pkt = MagicMock()
         plugin._pkt.tcp_syn_probe = AsyncMock(return_value=(True, 5.0))
         plugin._pkt.banner_grab = AsyncMock(return_value="")
+        plugin._pkt.active_banner_probe = AsyncMock(return_value="")
+        plugin._pkt.tls_cert_info = AsyncMock(return_value={})
+        plugin._pkt._HTTP_PORTS = frozenset({80, 8080, 8000, 8888})
+        plugin._pkt._HTTPS_PORTS = frozenset({443, 8443})
 
         result = plugin.execute(
             {
@@ -99,6 +103,10 @@ class TestNetworkScanner:
         plugin._pkt = MagicMock()
         plugin._pkt.tcp_syn_probe = AsyncMock(return_value=(False, 0.0))
         plugin._pkt.banner_grab = AsyncMock(return_value="")
+        plugin._pkt.active_banner_probe = AsyncMock(return_value="")
+        plugin._pkt.tls_cert_info = AsyncMock(return_value={})
+        plugin._pkt._HTTP_PORTS = frozenset({80, 8080, 8000, 8888})
+        plugin._pkt._HTTPS_PORTS = frozenset({443, 8443})
 
         result = plugin.execute(
             {

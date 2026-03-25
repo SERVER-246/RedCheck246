@@ -312,6 +312,15 @@ class NetworkScanner(BasePlugin):
                     open_ports.append(port)
                     # Grab banner from the open port
                     banner = await self._pkt.banner_grab(host, port)
+
+                    # Active probe for HTTP(S) ports that don't send
+                    # an unsolicited banner.
+                    if not banner and (
+                        port in self._pkt._HTTP_PORTS
+                        or port in self._pkt._HTTPS_PORTS
+                    ):
+                        banner = await self._pkt.active_banner_probe(host, port)
+
                     svc_name, confidence = self._detector.detect(banner, port)
                     services[port] = svc_name
 
@@ -325,8 +334,27 @@ class NetworkScanner(BasePlugin):
                             "latency_ms": round(latency, 2),
                             "severity": "info",
                             "detail": f"Port {port}/tcp open — {svc_name}",
+                            "banner": banner[:256] if banner else "",
                         }
                     )
+
+                    # TLS certificate inspection for HTTPS ports
+                    if port in self._pkt._HTTPS_PORTS:
+                        cert = await self._pkt.tls_cert_info(host, port)
+                        if cert:
+                            findings.append(
+                                {
+                                    "finding_type": "tls_certificate",
+                                    "target": host,
+                                    "port": port,
+                                    "severity": "info",
+                                    "detail": (
+                                        f"TLS cert on {host}:{port} — "
+                                        f"expires {cert.get('notAfter', 'unknown')}"
+                                    ),
+                                    "metadata": cert,
+                                }
+                            )
 
             node.open_ports = open_ports
             node.services = services

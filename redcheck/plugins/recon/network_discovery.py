@@ -8,6 +8,7 @@ OS fingerprinting. All discovered hosts are scope-validated before probing.
 from __future__ import annotations
 
 import asyncio
+import socket
 import time
 from typing import Any
 
@@ -28,6 +29,52 @@ from redcheck.plugins.base_plugin import BasePlugin, PluginResult
 from redcheck.plugins.recon.network_scan import ServiceVersionDetector
 
 log = structlog.get_logger(__name__)
+
+# Protocol-specific UDP payloads keyed by port number.
+# Each payload is the minimal valid request that elicits a response for
+# fingerprinting.  Ports not listed here fall back to a single NUL byte.
+_UDP_PROBES: dict[int, bytes] = {
+    # DNS — standard query for "version.bind" (CH TXT)
+    53: (
+        b"\xaa\xaa\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00"
+        b"\x07version\x04bind\x00\x00\x10\x00\x03"
+    ),
+    # DHCP — minimal DHCPINFORM (enough for most servers to respond)
+    67: (
+        b"\x01\x01\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+        + b"\x00" * 24
+        + b"\x63\x82\x53\x63"  # magic cookie
+        + b"\x35\x01\x08\xff"  # DHCP Inform + End
+    ),
+    # NTP — v3 client mode request
+    123: b"\x1b" + b"\x00" * 47,
+    # SNMP — GetRequest for sysDescr.0 (community "public")
+    161: (
+        b"\x30\x26\x02\x01\x01\x04\x06public"
+        b"\xa0\x19\x02\x04\x00\x00\x00\x01\x02\x01\x00\x02\x01\x00"
+        b"\x30\x0b\x30\x09\x06\x05\x2b\x06\x01\x02\x01\x05\x00"
+    ),
+    # IKE — initiator SA (enough to trigger a responder cookie)
+    500: (
+        b"\x00" * 8  # initiator cookie (placeholder)
+        + b"\x00" * 8  # responder cookie
+        + b"\x01\x10\x02\x00\x00\x00\x00\x00\x00\x00\x00\x1c"
+    ),
+    # SSDP — M-SEARCH for UPnP root devices
+    1900: (
+        b"M-SEARCH * HTTP/1.1\r\n"
+        b"HOST: 239.255.255.250:1900\r\n"
+        b"MAN: \"ssdp:discover\"\r\n"
+        b"MX: 1\r\n"
+        b"ST: upnp:rootdevice\r\n\r\n"
+    ),
+    # mDNS — query for _services._dns-sd._udp.local
+    5353: (
+        b"\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00"
+        b"\x09_services\x07_dns-sd\x04_udp\x05local\x00"
+        b"\x00\x0c\x00\x01"
+    ),
+}
 
 
 class InternalNetworkDiscoveryEngine(BasePlugin):
@@ -215,19 +262,38 @@ class InternalNetworkDiscoveryEngine(BasePlugin):
         return hosts
 
     async def _udp_probe(self, host: str, ports: list[int]) -> dict[int, str]:
-        """Probe UDP ports on a host.
+        """Probe UDP ports on a host with protocol-specific payloads.
 
-        Returns mapping of open port → detected service name.
-        In production this sends UDP datagrams; here we use
-        the ServiceVersionDetector for port-default mapping.
+        Sends a real UDP datagram per port and passes any response
+        bytes to ServiceVersionDetector for fingerprinting.
         """
         results: dict[int, str] = {}
+        loop = asyncio.get_event_loop()
         for port in ports:
-            svc_name, confidence = self._detector.detect("", port)
+            payload = _UDP_PROBES.get(port, b"\x00")
+            banner = ""
+            try:
+                sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                sock.settimeout(UDP_PROBE_TIMEOUT_SECONDS)
+                try:
+                    await loop.run_in_executor(
+                        None, sock.sendto, payload, (host, port),
+                    )
+                    data: bytes = await asyncio.wait_for(
+                        loop.run_in_executor(None, sock.recv, 4096),
+                        timeout=UDP_PROBE_TIMEOUT_SECONDS,
+                    )
+                    banner = data.decode("utf-8", errors="replace").strip()
+                except (TimeoutError, asyncio.TimeoutError, OSError, OverflowError):
+                    pass
+                finally:
+                    sock.close()
+            except (OSError, OverflowError):
+                pass
+            svc_name, confidence = self._detector.detect(banner, port)
             if confidence > 0.0:
                 results[port] = svc_name
 
-        await asyncio.sleep(min(UDP_PROBE_TIMEOUT_SECONDS, 0.01))
         return results
 
     async def _os_fingerprint(self, host: str) -> tuple[str, float]:

@@ -13,7 +13,10 @@ configured in the RoE.
 from __future__ import annotations
 
 import asyncio
+import http.client
+import json
 import os
+import socket
 import time
 from pathlib import Path
 from typing import Any
@@ -102,6 +105,9 @@ class ContainerAnalyzer(BasePlugin):
             # Try to parse container info from upstream findings
             upstream = context.get("upstream_findings", [])
             containers = self._extract_containers_from_upstream(upstream)
+        if not containers:
+            # Try to discover containers via Docker socket API
+            containers = self._discover_containers()
 
         for container in containers:
             container_findings = self._analyze_container(container, target)
@@ -163,6 +169,59 @@ class ContainerAnalyzer(BasePlugin):
             "is_containerized": any(indicators.values()),
             "indicators": indicators,
         }
+
+    @staticmethod
+    def _discover_containers() -> list[dict[str, Any]]:
+        """Query the Docker daemon via its UNIX socket to list containers.
+
+        Returns a list of normalised container config dicts suitable for
+        ``_analyze_container()``.  Returns an empty list when Docker is
+        unreachable or the socket does not exist.
+        """
+        if not hasattr(socket, "AF_UNIX"):
+            return []  # UNIX sockets unavailable on this platform
+
+        sock_path = os.environ.get("DOCKER_HOST", "/var/run/docker.sock")
+        if sock_path.startswith("unix://"):
+            sock_path = sock_path[len("unix://"):]
+        if not Path(sock_path).exists():
+            return []
+
+        containers: list[dict[str, Any]] = []
+        try:
+            af_unix: int = getattr(socket, "AF_UNIX")  # noqa: B009
+            sock = socket.socket(af_unix, socket.SOCK_STREAM)
+            sock.settimeout(5)
+            sock.connect(sock_path)
+            conn = http.client.HTTPConnection("localhost")
+            conn.sock = sock
+            conn.request("GET", "/containers/json?all=true")
+            resp = conn.getresponse()
+            if resp.status != 200:
+                return []
+            raw: list[dict[str, Any]] = json.loads(resp.read())
+            for c in raw:
+                cid = c.get("Id", "")[:12]
+                name = (c.get("Names") or [f"/{cid}"])[0].lstrip("/")
+                host_cfg = c.get("HostConfig") or {}
+                containers.append({
+                    "name": name,
+                    "image": c.get("Image", ""),
+                    "privileged": host_cfg.get("Privileged", False),
+                    "network_mode": host_cfg.get("NetworkMode", "bridge"),
+                    "volumes": [
+                        m.get("Source", "") for m in (c.get("Mounts") or [])
+                    ],
+                    "security_opt": host_cfg.get("SecurityOpt") or [],
+                    "read_only_rootfs": host_cfg.get("ReadonlyRootfs", False),
+                    "cap_add": host_cfg.get("CapAdd") or [],
+                    "networks": list((c.get("NetworkSettings") or {}).get(
+                        "Networks", {},
+                    ).keys()),
+                })
+        except (OSError, json.JSONDecodeError, Exception):
+            log.debug("docker_socket_unavailable", exc_info=True)
+        return containers
 
     @staticmethod
     def _extract_containers_from_upstream(
