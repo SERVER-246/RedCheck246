@@ -18,11 +18,13 @@ from redcheck.models import FindingSeverity
 log = structlog.get_logger(__name__)
 
 # Severity levels that require evidence (C3)
-_EVIDENCE_REQUIRED_SEVERITIES = frozenset({
-    FindingSeverity.MEDIUM,
-    FindingSeverity.HIGH,
-    FindingSeverity.CRITICAL,
-})
+_EVIDENCE_REQUIRED_SEVERITIES = frozenset(
+    {
+        FindingSeverity.MEDIUM,
+        FindingSeverity.HIGH,
+        FindingSeverity.CRITICAL,
+    }
+)
 
 
 # ------------------------------------------------------------------
@@ -33,17 +35,16 @@ _EVIDENCE_REQUIRED_SEVERITIES = frozenset({
 def _check_c1_no_empty_output(result: Any) -> list[dict[str, str]]:
     """C1: Passed with no findings → downgrade to PARTIAL."""
     violations: list[dict[str, str]] = []
-    if (
-        getattr(result, "success", False)
-        and not getattr(result, "findings", [])
-    ):
+    if getattr(result, "success", False) and not getattr(result, "findings", []):
         result.metadata.setdefault("original_status", str(result.success))
         result.metadata["contract_status"] = "PARTIAL"
-        violations.append({
-            "rule": "C1",
-            "type": "passed_with_no_findings",
-            "action": "status_downgraded_to_PARTIAL",
-        })
+        violations.append(
+            {
+                "rule": "C1",
+                "type": "passed_with_no_findings",
+                "action": "status_downgraded_to_PARTIAL",
+            }
+        )
     return violations
 
 
@@ -53,11 +54,13 @@ def _check_c2_no_zero_duration(result: Any) -> list[dict[str, str]]:
     duration = result.metadata.get("duration_seconds", 0.0)
     if duration <= 0.0:
         result.metadata["timing_unverified"] = True
-        violations.append({
-            "rule": "C2",
-            "type": "zero_duration",
-            "action": "flagged_timing_unverified",
-        })
+        violations.append(
+            {
+                "rule": "C2",
+                "type": "zero_duration",
+                "action": "flagged_timing_unverified",
+            }
+        )
     return violations
 
 
@@ -73,12 +76,14 @@ def _check_c3_evidence_required(result: Any) -> list[dict[str, str]]:
                 meta["unverified"] = True
                 meta["original_confidence"] = meta.get("confidence", "low")
                 meta["confidence"] = "low"
-                violations.append({
-                    "rule": "C3",
-                    "type": "missing_evidence",
-                    "action": "confidence_downgraded_to_low",
-                    "finding_type": getattr(finding, "finding_type", ""),
-                })
+                violations.append(
+                    {
+                        "rule": "C3",
+                        "type": "missing_evidence",
+                        "action": "confidence_downgraded_to_low",
+                        "finding_type": getattr(finding, "finding_type", ""),
+                    }
+                )
     return violations
 
 
@@ -99,13 +104,15 @@ def _check_c4_enrichment_completeness(result: Any) -> list[dict[str, str]]:
             missing.append("remediation")
         if missing:
             meta["enrichment_gaps"] = missing
-            violations.append({
-                "rule": "C4",
-                "type": "incomplete_enrichment",
-                "action": "gaps_tagged",
-                "missing": ",".join(missing),
-                "finding_type": getattr(finding, "finding_type", ""),
-            })
+            violations.append(
+                {
+                    "rule": "C4",
+                    "type": "incomplete_enrichment",
+                    "action": "gaps_tagged",
+                    "missing": ",".join(missing),
+                    "finding_type": getattr(finding, "finding_type", ""),
+                }
+            )
     return violations
 
 
@@ -118,12 +125,14 @@ def _check_c5_fake_metric(result: Any) -> list[dict[str, str]]:
     violations: list[dict[str, str]] = []
     for finding in getattr(result, "findings", []):
         if finding.metadata.get("fake_metric_detected"):
-            violations.append({
-                "rule": "C5",
-                "type": "suspected_fake_metric",
-                "action": "severity_set_to_none",
-                "finding_type": getattr(finding, "finding_type", ""),
-            })
+            violations.append(
+                {
+                    "rule": "C5",
+                    "type": "suspected_fake_metric",
+                    "action": "severity_set_to_none",
+                    "finding_type": getattr(finding, "finding_type", ""),
+                }
+            )
     return violations
 
 
@@ -133,11 +142,13 @@ def _check_c6_mode_declaration(result: Any) -> list[dict[str, str]]:
     if result.metadata.get("execution_mode") is None:
         result.metadata["execution_mode"] = "inferred"
         result.metadata["mode_inferred"] = True
-        violations.append({
-            "rule": "C6",
-            "type": "undeclared_mode",
-            "action": "mode_inferred",
-        })
+        violations.append(
+            {
+                "rule": "C6",
+                "type": "undeclared_mode",
+                "action": "mode_inferred",
+            }
+        )
     return violations
 
 

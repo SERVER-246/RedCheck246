@@ -294,8 +294,7 @@ class DetectionCoverageValidator(BasePlugin):
                 success=False,
                 findings=[],
                 errors=[
-                    "No alert_endpoint, alert_query_endpoint, or "
-                    "detected_techniques in context"
+                    "No alert_endpoint, alert_query_endpoint, or detected_techniques in context"
                 ],
                 metadata={"mode": "no-input", "contract_status": "PARTIAL"},
             )

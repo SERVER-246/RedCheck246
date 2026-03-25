@@ -49,6 +49,7 @@ _GRADE_THRESHOLDS: list[tuple[int, str]] = [
 # Result dataclass
 # ---------------------------------------------------------------------------
 
+
 @dataclass(frozen=True)
 class QualityScore:
     """Immutable result of a quality scoring run."""
@@ -78,6 +79,7 @@ class QualityScore:
 # Scoring helpers
 # ---------------------------------------------------------------------------
 
+
 def _compute_grade(total: float) -> str:
     for threshold, grade in _GRADE_THRESHOLDS:
         if total >= threshold:
@@ -104,9 +106,7 @@ def _enrichment_completeness(
     total_ratio = 0.0
     for f in findings:
         populated = sum(
-            1
-            for field_name in _ENRICHMENT_FIELDS
-            if getattr(f, field_name, None) is not None
+            1 for field_name in _ENRICHMENT_FIELDS if getattr(f, field_name, None) is not None
         )
         total_ratio += populated / len(_ENRICHMENT_FIELDS)
     avg = total_ratio / len(findings)
@@ -142,10 +142,7 @@ def _plugin_success_rate(
     return avg * 25.0, {
         "total_plugins": len(results),
         "avg_weight": round(avg, 4),
-        "per_plugin": {
-            r.plugin_name: round(w, 2)
-            for r, w in zip(results, weights, strict=True)
-        },
+        "per_plugin": {r.plugin_name: round(w, 2) for r, w in zip(results, weights, strict=True)},
     }
 
 
@@ -195,6 +192,7 @@ def _detection_realism(
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
+
 
 def score_engagement(results: list[PluginResult]) -> QualityScore:
     """Compute a quality score for a completed engagement.

@@ -316,8 +316,7 @@ class NetworkScanner(BasePlugin):
                     # Active probe for HTTP(S) ports that don't send
                     # an unsolicited banner.
                     if not banner and (
-                        port in self._pkt._HTTP_PORTS
-                        or port in self._pkt._HTTPS_PORTS
+                        port in self._pkt._HTTP_PORTS or port in self._pkt._HTTPS_PORTS
                     ):
                         banner = await self._pkt.active_banner_probe(host, port)
 

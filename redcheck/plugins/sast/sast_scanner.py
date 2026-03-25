@@ -357,9 +357,7 @@ _HIGH_EXPLOIT_PATTERNS: frozenset[str] = frozenset(
     }
 )
 
-_LOW_EXPLOIT_PATTERNS: frozenset[str] = frozenset(
-    {"hardcoded_ip", "security_todo"}
-)
+_LOW_EXPLOIT_PATTERNS: frozenset[str] = frozenset({"hardcoded_ip", "security_todo"})
 
 _DEFAULT_VENDOR_GLOBS: list[str] = [
     "**/vendor/**",
@@ -434,7 +432,8 @@ def _dedup_by_rule(findings: list[dict[str, Any]]) -> list[dict[str, Any]]:
         # Pick highest-severity exemplar
         group.sort(
             key=lambda x: _SEVERITY_ORDER.get(
-                x.get("data", {}).get("severity", "info").lower(), 0,
+                x.get("data", {}).get("severity", "info").lower(),
+                0,
             ),
             reverse=True,
         )
@@ -618,7 +617,12 @@ class SASTPlugin(BasePlugin):
         final = filtered[:max_findings]
 
         summary = _build_noise_summary(
-            original_count, after_filter, after_vendor, after_dedup, len(final), final,
+            original_count,
+            after_filter,
+            after_vendor,
+            after_dedup,
+            len(final),
+            final,
         )
 
         return PluginResult(

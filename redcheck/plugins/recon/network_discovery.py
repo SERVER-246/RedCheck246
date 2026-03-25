@@ -36,8 +36,7 @@ log = structlog.get_logger(__name__)
 _UDP_PROBES: dict[int, bytes] = {
     # DNS — standard query for "version.bind" (CH TXT)
     53: (
-        b"\xaa\xaa\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00"
-        b"\x07version\x04bind\x00\x00\x10\x00\x03"
+        b"\xaa\xaa\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00\x07version\x04bind\x00\x00\x10\x00\x03"
     ),
     # DHCP — minimal DHCPINFORM (enough for most servers to respond)
     67: (
@@ -64,7 +63,7 @@ _UDP_PROBES: dict[int, bytes] = {
     1900: (
         b"M-SEARCH * HTTP/1.1\r\n"
         b"HOST: 239.255.255.250:1900\r\n"
-        b"MAN: \"ssdp:discover\"\r\n"
+        b'MAN: "ssdp:discover"\r\n'
         b"MX: 1\r\n"
         b"ST: upnp:rootdevice\r\n\r\n"
     ),
@@ -277,7 +276,10 @@ class InternalNetworkDiscoveryEngine(BasePlugin):
                 sock.settimeout(UDP_PROBE_TIMEOUT_SECONDS)
                 try:
                     await loop.run_in_executor(
-                        None, sock.sendto, payload, (host, port),
+                        None,
+                        sock.sendto,
+                        payload,
+                        (host, port),
                     )
                     data: bytes = await asyncio.wait_for(
                         loop.run_in_executor(None, sock.recv, 4096),

@@ -340,8 +340,7 @@ class Orchestrator:
             ):
                 raise PolicyDeniedException(
                     plugin_name,
-                    f"Plugin '{plugin_name}' not in allowed tests: "
-                    f"{engagement.allowed_tests}",
+                    f"Plugin '{plugin_name}' not in allowed tests: {engagement.allowed_tests}",
                     engagement_id=eid,
                 )
 

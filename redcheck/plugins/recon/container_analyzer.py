@@ -183,7 +183,7 @@ class ContainerAnalyzer(BasePlugin):
 
         sock_path = os.environ.get("DOCKER_HOST", "/var/run/docker.sock")
         if sock_path.startswith("unix://"):
-            sock_path = sock_path[len("unix://"):]
+            sock_path = sock_path[len("unix://") :]
         if not Path(sock_path).exists():
             return []
 
@@ -204,21 +204,26 @@ class ContainerAnalyzer(BasePlugin):
                 cid = c.get("Id", "")[:12]
                 name = (c.get("Names") or [f"/{cid}"])[0].lstrip("/")
                 host_cfg = c.get("HostConfig") or {}
-                containers.append({
-                    "name": name,
-                    "image": c.get("Image", ""),
-                    "privileged": host_cfg.get("Privileged", False),
-                    "network_mode": host_cfg.get("NetworkMode", "bridge"),
-                    "volumes": [
-                        m.get("Source", "") for m in (c.get("Mounts") or [])
-                    ],
-                    "security_opt": host_cfg.get("SecurityOpt") or [],
-                    "read_only_rootfs": host_cfg.get("ReadonlyRootfs", False),
-                    "cap_add": host_cfg.get("CapAdd") or [],
-                    "networks": list((c.get("NetworkSettings") or {}).get(
-                        "Networks", {},
-                    ).keys()),
-                })
+                containers.append(
+                    {
+                        "name": name,
+                        "image": c.get("Image", ""),
+                        "privileged": host_cfg.get("Privileged", False),
+                        "network_mode": host_cfg.get("NetworkMode", "bridge"),
+                        "volumes": [m.get("Source", "") for m in (c.get("Mounts") or [])],
+                        "security_opt": host_cfg.get("SecurityOpt") or [],
+                        "read_only_rootfs": host_cfg.get("ReadonlyRootfs", False),
+                        "cap_add": host_cfg.get("CapAdd") or [],
+                        "networks": list(
+                            (c.get("NetworkSettings") or {})
+                            .get(
+                                "Networks",
+                                {},
+                            )
+                            .keys()
+                        ),
+                    }
+                )
         except (OSError, json.JSONDecodeError, Exception):
             log.debug("docker_socket_unavailable", exc_info=True)
         return containers

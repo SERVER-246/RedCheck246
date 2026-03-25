@@ -480,9 +480,7 @@ async def check_cors(url: str) -> list[dict[str, Any]]:
                         {
                             "type": "dast_cors_reflect",
                             "target": url,
-                            "detail": (
-                                f"CORS reflects arbitrary origin '{origin}'"
-                            ),
+                            "detail": (f"CORS reflects arbitrary origin '{origin}'"),
                             "data": {
                                 "severity": severity,
                                 "origin_sent": origin,

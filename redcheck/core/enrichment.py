@@ -36,8 +36,7 @@ _ENRICHMENT_DB: dict[str, dict[str, Any]] = {
         "cvss_score": 4.3,
         "mitre_technique": "T1557",
         "remediation": (
-            "Enable HTTP Strict Transport Security (HSTS)"
-            " with a minimum max-age of 31536000."
+            "Enable HTTP Strict Transport Security (HSTS) with a minimum max-age of 31536000."
         ),
     },
     "missing_csp": {
@@ -120,8 +119,7 @@ _ENRICHMENT_DB: dict[str, dict[str, Any]] = {
         "cvss_score": 9.8,
         "mitre_technique": "T1190",
         "remediation": (
-            "Use parameterized queries or an ORM;"
-            " never concatenate user input into SQL."
+            "Use parameterized queries or an ORM; never concatenate user input into SQL."
         ),
     },
     "xss": {
@@ -180,8 +178,7 @@ _ENRICHMENT_DB: dict[str, dict[str, Any]] = {
         "cvss_score": 5.3,
         "mitre_technique": "T1110",
         "remediation": (
-            "Use bcrypt, scrypt, or Argon2 for password hashing;"
-            " SHA-256+ for integrity."
+            "Use bcrypt, scrypt, or Argon2 for password hashing; SHA-256+ for integrity."
         ),
     },
     "weak_password": {

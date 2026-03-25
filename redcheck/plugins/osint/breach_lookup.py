@@ -131,8 +131,7 @@ class BreachLookup(BasePlugin):
                 success=False,
                 findings=[],
                 errors=[
-                    "No breach_passwords in context"
-                    " — provide credentials or enable chain_mode"
+                    "No breach_passwords in context — provide credentials or enable chain_mode"
                 ],
                 metadata={"mode": "no-input", "contract_status": "PARTIAL"},
             )

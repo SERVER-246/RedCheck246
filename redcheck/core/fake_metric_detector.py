@@ -27,16 +27,13 @@ log = structlog.get_logger(__name__)
 
 _ZERO_PATTERNS: dict[str, Callable[[Any], bool]] = {
     "alert-latency": lambda f: (
-        "avg=0.0ms" in getattr(f, "detail", "")
-        or "p95=0.0ms" in getattr(f, "detail", "")
+        "avg=0.0ms" in getattr(f, "detail", "") or "p95=0.0ms" in getattr(f, "detail", "")
     ),
     "detection-coverage": lambda f: (
-        "0.0%" in getattr(f, "detail", "")
-        and "0/" in getattr(f, "detail", "")
+        "0.0%" in getattr(f, "detail", "") and "0/" in getattr(f, "detail", "")
     ),
     "persistence-validator": lambda f: (
-        "NOT detected" in getattr(f, "detail", "")
-        and not getattr(f, "evidence_ref", None)
+        "NOT detected" in getattr(f, "detail", "") and not getattr(f, "evidence_ref", None)
     ),
 }
 
@@ -60,18 +57,13 @@ def _check_fm2_duration_cross(
         return False
     detail = getattr(finding, "detail", "")
     # Measurement keywords that imply network activity
-    return any(
-        kw in detail.lower()
-        for kw in ("ms", "latency", "response time", "coverage")
-    )
+    return any(kw in detail.lower() for kw in ("ms", "latency", "response time", "coverage"))
 
 
 def _check_fm3_evidence_free_measurement(finding: Any) -> bool:
     """FM-3: Measurement claim without evidence."""
     detail = getattr(finding, "detail", "")
-    has_measurement = any(
-        tok in detail for tok in ("ms", "%", "/", "bytes", "count")
-    )
+    has_measurement = any(tok in detail for tok in ("ms", "%", "/", "bytes", "count"))
     if has_measurement and not getattr(finding, "evidence_ref", None):
         sev = getattr(finding, "severity", None)
         if sev and sev != FindingSeverity.INFO:
@@ -86,9 +78,7 @@ def _downgrade_finding(finding: Any, reason: str) -> None:
     meta["fake_reason"] = reason
     original = getattr(finding, "severity", None)
     if original and original != FindingSeverity.INFO:
-        meta["original_severity"] = (
-            original.value if hasattr(original, "value") else str(original)
-        )
+        meta["original_severity"] = original.value if hasattr(original, "value") else str(original)
         with contextlib.suppress(AttributeError, ValueError):
             finding.severity = FindingSeverity.INFO
 

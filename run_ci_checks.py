@@ -64,7 +64,9 @@ def _run(
     if passed:
         print(f"\n  {GREEN}✓ PASS{RESET}  ({elapsed:.1f}s)")
     elif allow_fail:
-        print(f"\n  {YELLOW}⚠ WARN{RESET}  (exit {result.returncode}, {elapsed:.1f}s) — non-blocking")
+        print(
+            f"\n  {YELLOW}⚠ WARN{RESET}  (exit {result.returncode}, {elapsed:.1f}s) — non-blocking"
+        )
     else:
         print(f"\n  {RED}✗ FAIL{RESET}  (exit {result.returncode}, {elapsed:.1f}s)")
 
@@ -73,7 +75,9 @@ def _run(
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Local CI validation for RedCheck246")
-    parser.add_argument("--quick", action="store_true", help="Skip pytest, mutmut, and build (lint + security only)")
+    parser.add_argument(
+        "--quick", action="store_true", help="Skip pytest, mutmut, and build (lint + security only)"
+    )
     parser.add_argument("--no-build", action="store_true", help="Skip package build verification")
     parser.add_argument("--no-mutmut", action="store_true", help="Skip mutation testing (slow)")
     args = parser.parse_args()
@@ -90,7 +94,9 @@ def main() -> int:
     ok, t = _run("Ruff format", [PYTHON, "-m", "ruff", "format", "--check", "redcheck/", "tests/"])
     results.append(("Ruff format", ok, t))
 
-    ok, t = _run("Mypy type check", [PYTHON, "-m", "mypy", "--strict", "redcheck/"], allow_fail=True)
+    ok, t = _run(
+        "Mypy type check", [PYTHON, "-m", "mypy", "--strict", "redcheck/"], allow_fail=True
+    )
     results.append(("Mypy (non-blocking)", ok, t))
 
     # ── 2. Security Scan ──────────────────────────────────────────────
@@ -111,24 +117,38 @@ def main() -> int:
         (r"secret\s*=\s*['\"][^'\"]*['\"]", "hardcoded secrets"),
     ]:
         r = subprocess.run(
-            [PYTHON, "-c", f"""
+            [
+                PYTHON,
+                "-c",
+                f"""
 import re, pathlib, sys
 hits = []
 for p in pathlib.Path('redcheck').rglob('*.py'):
     for i, line in enumerate(p.read_text(encoding='utf-8').splitlines(), 1):
         if re.search(r'''{pattern}''', line) and 'test' not in str(p) and '#' not in line.split('=')[0]:
-            hits.append(f'  {{p}}:{{i}}: {{line.strip()}}')
+            hits.append(f'  {{p}}:{{i}}')
 if hits:
-    print(f'WARNING: Possible {label} found:')
+    print(f'WARNING: Possible {label} found in {{len(hits)}} location(s):')
     print(chr(10).join(hits))
     sys.exit(1)
 else:
     print(f'No {label} detected')
-"""],
+""",
+            ],
             cwd=str(REPO_ROOT),
             text=True,
+            capture_output=True,
         )
         if r.returncode != 0:
+            # Print only location info (file:line), never line content
+            for out_line in (r.stdout or "").splitlines():
+                if out_line.strip().startswith("WARNING"):
+                    print(f"  {out_line.strip()}")
+                elif ":" in out_line:
+                    # Strip any content after file:line
+                    parts = out_line.strip().split(":")
+                    if len(parts) >= 2:
+                        print(f"    {parts[0]}:{parts[1]}")
             secret_ok = False
     secret_t = time.monotonic() - secret_start
     if secret_ok:
@@ -144,11 +164,16 @@ else:
         ok, t = _run(
             "Pytest (full suite)",
             [
-                PYTHON, "-m", "pytest",
-                "--cov=redcheck", "--cov-branch",
+                PYTHON,
+                "-m",
+                "pytest",
+                "--cov=redcheck",
+                "--cov-branch",
                 "--cov-report=term-missing:skip-covered",
                 "--cov-fail-under=90",
-                "tests/", "-v", "--tb=short",
+                "tests/",
+                "-v",
+                "--tb=short",
             ],
         )
         results.append(("Pytest", ok, t))
@@ -211,11 +236,13 @@ else:
     total_time = time.monotonic() - overall_start
     any_fail = False
 
-    for name, ok, t in results:
-        icon = f"{GREEN}✓{RESET}" if ok else f"{RED}✗{RESET}"
-        time_str = f"{t:.1f}s" if t > 0 else "skip"
-        print(f"  {icon}  {name:<30s}  {time_str}")
-        if not ok:
+    for check_name, check_ok, check_time in results:
+        icon = f"{GREEN}✓{RESET}" if check_ok else f"{RED}✗{RESET}"
+        time_str = f"{check_time:.1f}s" if check_time > 0 else "skip"
+        # Sanitise: only print the known check label, not any captured output
+        safe_name = str(check_name)[:40]
+        print(f"  {icon}  {safe_name:<30s}  {time_str}")  # noqa: S106
+        if not check_ok:
             any_fail = True
 
     print(f"\n  Total: {total_time:.1f}s")

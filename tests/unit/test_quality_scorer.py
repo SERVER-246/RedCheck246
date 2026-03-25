@@ -21,6 +21,7 @@ from redcheck.models import Evidence, Finding, FindingSeverity, PluginResult
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _finding(**overrides: object) -> Finding:
     defaults: dict[str, object] = {
         "finding_type": "test",
@@ -63,6 +64,7 @@ def _result(
 # Grade thresholds
 # ---------------------------------------------------------------------------
 
+
 class TestComputeGrade:
     def test_grade_a(self) -> None:
         assert _compute_grade(100.0) == "A"
@@ -88,6 +90,7 @@ class TestComputeGrade:
 # ---------------------------------------------------------------------------
 # Evidence Coverage
 # ---------------------------------------------------------------------------
+
 
 class TestEvidenceCoverage:
     def test_no_findings(self) -> None:
@@ -116,6 +119,7 @@ class TestEvidenceCoverage:
 # ---------------------------------------------------------------------------
 # Enrichment Completeness
 # ---------------------------------------------------------------------------
+
 
 class TestEnrichmentCompleteness:
     def test_no_findings(self) -> None:
@@ -148,6 +152,7 @@ class TestEnrichmentCompleteness:
 # Plugin Weight
 # ---------------------------------------------------------------------------
 
+
 class TestPluginWeight:
     def test_success_with_findings_and_evidence(self) -> None:
         r = _result(findings=[_finding()], evidence=[_evidence()])
@@ -178,6 +183,7 @@ class TestPluginWeight:
 # Plugin Success Rate
 # ---------------------------------------------------------------------------
 
+
 class TestPluginSuccessRate:
     def test_empty(self) -> None:
         score, details = _plugin_success_rate([])
@@ -205,6 +211,7 @@ class TestPluginSuccessRate:
 # Detection Plugin Matching
 # ---------------------------------------------------------------------------
 
+
 class TestIsDetectionPlugin:
     def test_alert_latency(self) -> None:
         assert _is_detection_plugin("alert-latency") is True
@@ -228,6 +235,7 @@ class TestIsDetectionPlugin:
 # ---------------------------------------------------------------------------
 # Detection Realism
 # ---------------------------------------------------------------------------
+
 
 class TestDetectionRealism:
     def test_no_detection_plugins(self) -> None:
@@ -290,8 +298,13 @@ class TestDetectionRealism:
 
     def test_capped_at_25(self) -> None:
         # Even if >4 detection plugins somehow, cap at 25
-        names = ["alert-latency", "detection-coverage", "persistence-validator",
-                 "detection-response-recorder", "response-recorder-custom"]
+        names = [
+            "alert-latency",
+            "detection-coverage",
+            "persistence-validator",
+            "detection-response-recorder",
+            "response-recorder-custom",
+        ]
         results = [
             _result(
                 name=n,
@@ -308,6 +321,7 @@ class TestDetectionRealism:
 # ---------------------------------------------------------------------------
 # Full Scoring
 # ---------------------------------------------------------------------------
+
 
 class TestScoreEngagement:
     def test_empty_results(self) -> None:

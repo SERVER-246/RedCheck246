@@ -169,7 +169,10 @@ class JSONReportGenerator:
     ) -> str:
         """Generate a JSON string report."""
         report = self.generate(
-            scan_report, plugin_results, metadata=metadata, quality_score=quality_score,
+            scan_report,
+            plugin_results,
+            metadata=metadata,
+            quality_score=quality_score,
         )
         return json.dumps(report, indent=indent, default=str, ensure_ascii=False)
 
