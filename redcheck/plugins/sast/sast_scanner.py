@@ -10,6 +10,7 @@ Capabilities:
 
 from __future__ import annotations
 
+import fnmatch
 import os
 import re
 from pathlib import Path
@@ -321,6 +322,186 @@ def _scan_dependency_files(paths: list[Path]) -> list[dict[str, Any]]:
 
 
 # ---------------------------------------------------------------------------
+# N1 — Noise reduction pipeline helpers
+# ---------------------------------------------------------------------------
+
+_SEVERITY_ORDER: dict[str, int] = {
+    "info": 0,
+    "low": 1,
+    "medium": 2,
+    "high": 3,
+    "critical": 4,
+}
+
+_SEVERITY_WEIGHT: dict[str, float] = {
+    "info": 1.0,
+    "low": 2.0,
+    "medium": 3.0,
+    "high": 4.0,
+    "critical": 5.0,
+}
+
+_CONFIDENCE_WEIGHT: dict[str, float] = {
+    "HIGH": 1.0,
+    "MEDIUM": 0.7,
+    "LOW": 0.4,
+}
+
+_HIGH_EXPLOIT_PATTERNS: frozenset[str] = frozenset(
+    {
+        "hardcoded_password",
+        "private_key",
+        "aws_access_key",
+        "eval_exec",
+        "hardcoded_api_key",
+    }
+)
+
+_LOW_EXPLOIT_PATTERNS: frozenset[str] = frozenset(
+    {"hardcoded_ip", "security_todo"}
+)
+
+_DEFAULT_VENDOR_GLOBS: list[str] = [
+    "**/vendor/**",
+    "**/generated/**",
+    "**/migrations/**",
+    "**/*_pb2.py",
+    "**/*_generated.*",
+    "**/.tox/**",
+]
+
+
+def _filter_noise(
+    findings: list[dict[str, Any]],
+    min_severity: str = "medium",
+    min_confidence: str = "MEDIUM",
+) -> list[dict[str, Any]]:
+    """Drop low-severity / low-confidence Bandit findings.
+
+    Only applies to ``sast_bandit`` findings — custom pattern and
+    dependency findings are kept regardless.
+    """
+    sev_threshold = _SEVERITY_ORDER.get(min_severity.lower(), 2)
+    conf_threshold = _CONFIDENCE_WEIGHT.get(min_confidence, 0.7)
+    result: list[dict[str, Any]] = []
+    for f in findings:
+        if f.get("type") == "sast_bandit":
+            data = f.get("data", {})
+            sev = _SEVERITY_ORDER.get(data.get("severity", "MEDIUM").lower(), 2)
+            conf = _CONFIDENCE_WEIGHT.get(data.get("confidence", "MEDIUM"), 0.7)
+            if sev < sev_threshold and conf < conf_threshold:
+                continue
+        result.append(f)
+    return result
+
+
+def _exclude_vendor_paths(
+    findings: list[dict[str, Any]],
+    patterns: list[str] | None = None,
+) -> list[dict[str, Any]]:
+    """Remove findings whose target matches vendor/generated glob patterns."""
+    pats = patterns if patterns is not None else _DEFAULT_VENDOR_GLOBS
+    if not pats:
+        return findings
+    result: list[dict[str, Any]] = []
+    for f in findings:
+        target = f.get("target", "").replace("\\", "/")
+        if not any(fnmatch.fnmatch(target, p) for p in pats):
+            result.append(f)
+    return result
+
+
+def _dedup_by_rule(findings: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Group findings by rule ID and keep highest-severity exemplar.
+
+    For Bandit findings the group key is ``data["test_id"]``.
+    For custom pattern findings the key is ``data["pattern"]``.
+    """
+    groups: dict[str, list[dict[str, Any]]] = {}
+    passthrough: list[dict[str, Any]] = []
+    for f in findings:
+        data = f.get("data", {})
+        ftype = f.get("type", "")
+        rule_id = data.get("test_id") or data.get("pattern")
+        if rule_id:
+            key = f"{ftype}:{rule_id}"
+            groups.setdefault(key, []).append(f)
+        else:
+            passthrough.append(f)
+
+    result: list[dict[str, Any]] = list(passthrough)
+    for group in groups.values():
+        # Pick highest-severity exemplar
+        group.sort(
+            key=lambda x: _SEVERITY_ORDER.get(
+                x.get("data", {}).get("severity", "info").lower(), 0,
+            ),
+            reverse=True,
+        )
+        exemplar = group[0]
+        exemplar.setdefault("data", {})["occurrence_count"] = len(group)
+        exemplar["data"]["occurrence_files"] = sorted(
+            {g.get("target", "") for g in group},
+        )[:5]
+        result.append(exemplar)
+    return result
+
+
+def _score_priority(findings: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Assign ``priority_score`` and sort descending."""
+    for f in findings:
+        data = f.get("data", {})
+        sev_w = _SEVERITY_WEIGHT.get(data.get("severity", "info").lower(), 1.0)
+        conf_w = _CONFIDENCE_WEIGHT.get(data.get("confidence", "HIGH"), 1.0)
+        pattern = data.get("pattern", "")
+        if pattern in _HIGH_EXPLOIT_PATTERNS:
+            exploit = 1.5
+        elif pattern in _LOW_EXPLOIT_PATTERNS:
+            exploit = 0.5
+        else:
+            exploit = 1.0
+        data["priority_score"] = round(sev_w * conf_w * exploit, 2)
+    findings.sort(
+        key=lambda x: x.get("data", {}).get("priority_score", 0),
+        reverse=True,
+    )
+    return findings
+
+
+def _build_noise_summary(
+    original_count: int,
+    after_filter: int,
+    after_vendor: int,
+    after_dedup: int,
+    final_count: int,
+    findings: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Build a metadata summary of the noise-reduction pipeline."""
+    cats: dict[str, int] = {}
+    for f in findings:
+        ftype = f.get("type", "unknown")
+        cats[ftype] = cats.get(ftype, 0) + 1
+
+    rule_counts: dict[str, int] = {}
+    for f in findings:
+        data = f.get("data", {})
+        rule = data.get("test_id") or data.get("pattern") or "other"
+        rule_counts[rule] = rule_counts.get(rule, 0) + data.get("occurrence_count", 1)
+    top_rules = sorted(rule_counts.items(), key=lambda x: x[1], reverse=True)[:10]
+
+    return {
+        "original_count": original_count,
+        "after_severity_filter": after_filter,
+        "after_vendor_exclusion": after_vendor,
+        "after_rule_dedup": after_dedup,
+        "final_count": final_count,
+        "truncated": final_count < after_dedup,
+        "category_counts": cats,
+        "top_rules": [{"rule": r, "count": c} for r, c in top_rules],
+    }
+
+
+# ---------------------------------------------------------------------------
 # Plugin class
 # ---------------------------------------------------------------------------
 
@@ -416,15 +597,40 @@ class SASTPlugin(BasePlugin):
                     orig = finding.get("severity", "info")
                     finding["severity"] = severity_downgrade.get(orig, orig)
 
+        original_count = len(deduped)
+
+        # N1 noise-reduction pipeline
+        min_sev = str(context.get("sast_min_severity", "medium")).lower()
+        min_conf = str(context.get("sast_min_confidence", "MEDIUM"))
+        filtered = _filter_noise(deduped, min_severity=min_sev, min_confidence=min_conf)
+        after_filter = len(filtered)
+
+        vendor_pats: list[str] | None = context.get("sast_exclude_patterns")
+        filtered = _exclude_vendor_paths(filtered, patterns=vendor_pats)
+        after_vendor = len(filtered)
+
+        filtered = _dedup_by_rule(filtered)
+        after_dedup = len(filtered)
+
+        filtered = _score_priority(filtered)
+
+        max_findings = int(context.get("sast_max_findings", 200))
+        final = filtered[:max_findings]
+
+        summary = _build_noise_summary(
+            original_count, after_filter, after_vendor, after_dedup, len(final), final,
+        )
+
         return PluginResult(
             plugin_name=self.name,
             success=True,
-            findings=deduped,
+            findings=final,
             errors=errors,
             metadata={
                 "scan_paths": [str(p) for p in paths],
-                "total_findings": len(deduped),
+                "total_findings": len(final),
                 "modules": ["bandit", "pattern_scanner", "dependency_scanner"],
+                "noise_reduction": summary,
             },
         )
 
