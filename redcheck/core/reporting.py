@@ -18,6 +18,7 @@ import structlog
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from redcheck.core.quality_scorer import QualityScore
     from redcheck.models import (
         PluginResult,
         ScanReport,
@@ -108,6 +109,7 @@ class JSONReportGenerator:
         plugin_results: list[PluginResult] | None = None,
         *,
         metadata: ReportMetadata | None = None,
+        quality_score: QualityScore | None = None,
     ) -> dict[str, Any]:
         """Generate a JSON-serializable report dict.
 
@@ -115,6 +117,7 @@ class JSONReportGenerator:
             scan_report: The aggregated scan report.
             plugin_results: Optional per-plugin results.
             metadata: Optional report metadata (auto-generated if None).
+            quality_score: Optional pre-computed quality score.
 
         Returns:
             A JSON-serializable dict with metadata, summary, findings, evidence.
@@ -150,6 +153,9 @@ class JSONReportGenerator:
             "signature": None,
         }
 
+        if quality_score is not None:
+            report["quality"] = quality_score.to_dict()
+
         return report
 
     def generate_json(
@@ -158,10 +164,13 @@ class JSONReportGenerator:
         plugin_results: list[PluginResult] | None = None,
         *,
         metadata: ReportMetadata | None = None,
+        quality_score: QualityScore | None = None,
         indent: int = 2,
     ) -> str:
         """Generate a JSON string report."""
-        report = self.generate(scan_report, plugin_results, metadata=metadata)
+        report = self.generate(
+            scan_report, plugin_results, metadata=metadata, quality_score=quality_score,
+        )
         return json.dumps(report, indent=indent, default=str, ensure_ascii=False)
 
     def save(
@@ -282,6 +291,29 @@ _EXECUTIVE_SUMMARY_TEMPLATE = """\
 <p><strong>Generated:</strong> {{ metadata.generated_at }}</p>
 <p><strong>Scanner:</strong> {{ summary.scanner }}</p>
 <p><strong>Duration:</strong> {{ "%.1f"|format(summary.duration_seconds) }}s</p>
+
+{% if quality is defined and quality %}
+<div style="border:2px solid #2c3e50;padding:12px;
+  margin:1em 0;border-radius:6px;background:#ecf0f1;">
+<h2 style="margin-top:0">Quality Score:
+  {{ quality.total }} / 100 &mdash; Grade {{ quality.grade }}</h2>
+<table>
+  <tr><th>Component</th><th>Score</th><th>Max</th></tr>
+  <tr><td>Evidence Coverage</td>
+    <td>{{ "%.1f"|format(quality.evidence_coverage) }}</td>
+    <td>25</td></tr>
+  <tr><td>Enrichment Completeness</td>
+    <td>{{ "%.1f"|format(quality.enrichment_completeness) }}</td>
+    <td>25</td></tr>
+  <tr><td>Plugin Success Rate</td>
+    <td>{{ "%.1f"|format(quality.plugin_success_rate) }}</td>
+    <td>25</td></tr>
+  <tr><td>Detection Realism</td>
+    <td>{{ "%.1f"|format(quality.detection_realism) }}</td>
+    <td>25</td></tr>
+</table>
+</div>
+{% endif %}
 
 <h2>Severity Breakdown</h2>
 <table>
@@ -474,6 +506,16 @@ class ReportExporter:
         if _HAS_JINJA2:
             self._renderer = TemplateRenderer(template_dir=template_dir)
 
+    @staticmethod
+    def _compute_quality(
+        plugin_results: list[PluginResult] | None,
+    ) -> QualityScore | None:
+        if not plugin_results:
+            return None
+        from redcheck.core.quality_scorer import score_engagement
+
+        return score_engagement(plugin_results)
+
     def export_json(
         self,
         scan_report: ScanReport,
@@ -487,7 +529,8 @@ class ReportExporter:
         If signing is enabled and a key is provided, the report's
         ``signature`` field is populated with the Ed25519 signature.
         """
-        report = self._json_gen.generate(scan_report, plugin_results)
+        qs = self._compute_quality(plugin_results)
+        report = self._json_gen.generate(scan_report, plugin_results, quality_score=qs)
 
         if sign and self._signer and self._signing_key:
             sig = self._signer.sign_report(report, self._signing_key)
@@ -513,7 +556,8 @@ class ReportExporter:
             log.warning("template_renderer_unavailable")
             return None
 
-        report = self._json_gen.generate(scan_report, plugin_results)
+        qs = self._compute_quality(plugin_results)
+        report = self._json_gen.generate(scan_report, plugin_results, quality_score=qs)
         return self._renderer.render_pdf(report, output_path, template_name)
 
     def export_markdown(
@@ -523,7 +567,8 @@ class ReportExporter:
         plugin_results: list[PluginResult] | None = None,
     ) -> Path:
         """Export a Markdown (.md) report."""
-        report = self._json_gen.generate(scan_report, plugin_results)
+        qs = self._compute_quality(plugin_results)
+        report = self._json_gen.generate(scan_report, plugin_results, quality_score=qs)
         meta = report.get("metadata", {})
         summary = report.get("summary", {})
         findings = report.get("findings", [])
@@ -538,6 +583,21 @@ class ReportExporter:
         lines.append(f"**Report Type:** {meta.get('report_type', 'scan_report')}  ")
         lines.append(f"**Generator:** RedCheck v{meta.get('generator_version', '0.3.0')}")
         lines.append("")
+
+        # Quality score
+        quality = report.get("quality")
+        if quality:
+            lines.append("## Quality Score")
+            lines.append("")
+            lines.append(f"**Total: {quality['total']} / 100 — Grade {quality['grade']}**")
+            lines.append("")
+            lines.append("| Component | Score | Max |")
+            lines.append("|-----------|-------|-----|")
+            lines.append(f"| Evidence Coverage | {quality['evidence_coverage']} | 25 |")
+            lines.append(f"| Enrichment Completeness | {quality['enrichment_completeness']} | 25 |")
+            lines.append(f"| Plugin Success Rate | {quality['plugin_success_rate']} | 25 |")
+            lines.append(f"| Detection Realism | {quality['detection_realism']} | 25 |")
+            lines.append("")
 
         # Severity summary
         sev_counts = summary.get("severity_counts", {})
