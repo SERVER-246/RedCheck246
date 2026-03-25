@@ -150,8 +150,9 @@ class TestDetectionCoverageValidator:
                 "detection_wait_seconds": 0,
             }
         )
-        assert result.success
-        assert result.metadata["coverage_percentage"] == 0.0
+        # Empty detected_techniques and no endpoints → PARTIAL
+        assert result.success is False
+        assert result.metadata.get("contract_status") == "PARTIAL"
 
 
 # ── Latency Tester ────────────────────────────────────────────────────

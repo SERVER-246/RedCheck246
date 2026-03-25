@@ -207,13 +207,13 @@ class TestDetectionCoverageValidatorPlugin:
         assert p.mitre_techniques == ["T1562.001"]
 
     def test_offline_zero_detected(self) -> None:
-        """No detected_techniques → 0% coverage."""
+        """No detected_techniques and no endpoints → PARTIAL."""
         p = DetectionCoverageValidator()
         ctx = self._make_context()
         result = p.execute(ctx)
-        assert result.success is True
-        assert result.metadata["coverage_percentage"] == 0.0
-        assert result.metadata["undetected_count"] == result.metadata["total_techniques"]
+        assert result.success is False
+        assert result.metadata.get("contract_status") == "PARTIAL"
+        assert result.metadata.get("mode") == "no-input"
 
     def test_offline_partial_detected(self) -> None:
         """Pre-populated detected_techniques in context."""

@@ -175,9 +175,23 @@ class AlertLatencyTester(BasePlugin):
         # Configuration
         alert_endpoint: str | None = context.get("alert_endpoint")
         alert_query_endpoint: str | None = context.get("alert_query_endpoint")
+        sim_latencies_ctx: list[float] = context.get("simulated_latencies_ms", [])
         expected_ms: float = context.get("expected_latency_ms", DEFAULT_EXPECTED_LATENCY_MS)
         probe_count: int = context.get("latency_probe_count", 3)
         probe_count = max(1, min(probe_count, 20))  # cap 1–20
+
+        # No detection infrastructure and no simulated data → PARTIAL
+        if not alert_endpoint and not alert_query_endpoint and not sim_latencies_ctx:
+            return PluginResult(
+                plugin_name=self.name,
+                success=False,
+                findings=[],
+                errors=[
+                    "No alert_endpoint, alert_query_endpoint, or "
+                    "simulated_latencies_ms in context"
+                ],
+                metadata={"mode": "no-input", "contract_status": "PARTIAL"},
+            )
 
         # Timeout = 5 × expected, hard capped
         timeout_s = min(
@@ -243,7 +257,7 @@ class AlertLatencyTester(BasePlugin):
                     await asyncio.sleep(poll_interval)
             else:
                 # Offline mode — use simulated latencies from context
-                sim_latencies: list[float] = context.get("simulated_latencies_ms", [])
+                sim_latencies: list[float] = sim_latencies_ctx
                 if i < len(sim_latencies):
                     sim_ms = sim_latencies[i]
                     await asyncio.sleep(min(sim_ms / 1000.0, 0.01))

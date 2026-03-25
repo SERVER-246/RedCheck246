@@ -110,6 +110,19 @@ class PersistenceValidator(BasePlugin):
         wait_seconds: float = min(context.get("detection_wait_seconds", 5.0), 60.0)
         custom_scope: list[str] | None = context.get("persistence_scope")
 
+        # No detection infrastructure → PARTIAL (Rule 2: no fabricated metrics)
+        if not alert_endpoint and not alert_query_endpoint:
+            return PluginResult(
+                plugin_name=self.name,
+                success=False,
+                findings=[],
+                errors=[
+                    "No alert_endpoint or alert_query_endpoint in context"
+                    " — configure detection endpoints to validate persistence"
+                ],
+                metadata={"mode": "no-input", "contract_status": "PARTIAL"},
+            )
+
         scope = (
             {t: PERSISTENCE_TECHNIQUES[t] for t in custom_scope if t in PERSISTENCE_TECHNIQUES}
             if custom_scope

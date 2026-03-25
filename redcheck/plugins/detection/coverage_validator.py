@@ -285,6 +285,20 @@ class DetectionCoverageValidator(BasePlugin):
         seed: str = context.get("detection_seed", "default")
         wait_seconds: float = context.get("detection_wait_seconds", 5.0)
         custom_scope: list[str] | None = context.get("detection_scope")
+        pre_detected: list[str] = context.get("detected_techniques", [])
+
+        # No detection infrastructure and no pre-populated results → PARTIAL
+        if not alert_endpoint and not alert_query_endpoint and not pre_detected:
+            return PluginResult(
+                plugin_name=self.name,
+                success=False,
+                findings=[],
+                errors=[
+                    "No alert_endpoint, alert_query_endpoint, or "
+                    "detected_techniques in context"
+                ],
+                metadata={"mode": "no-input", "contract_status": "PARTIAL"},
+            )
 
         scope = frozenset(custom_scope) if custom_scope else technique_ids()
         markers = generate_all_markers(scope, seed=seed)
@@ -337,7 +351,6 @@ class DetectionCoverageValidator(BasePlugin):
                     errors.append(f"query alerts: {exc}")
         else:
             # Offline mode — use pre-populated detection results from context
-            pre_detected: list[str] = context.get("detected_techniques", [])
             detected = {t for t in pre_detected if t in scope}
 
         # Phase 4: Compute coverage

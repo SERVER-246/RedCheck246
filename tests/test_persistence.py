@@ -113,37 +113,33 @@ class TestMarkerGeneration:
 
 
 class TestPersistenceOffline:
-    def test_offline_all_undetected(self, plugin: PersistenceValidator) -> None:
-        """Without alert endpoint, detection phase is skipped → all undetected."""
+    def test_offline_no_endpoints_returns_partial(self, plugin: PersistenceValidator) -> None:
+        """Without alert endpoint, plugin returns PARTIAL (no fabricated metrics)."""
         result = plugin.execute({"targets": ["10.0.0.1"]})
         assert isinstance(result, PluginResult)
-        assert result.success
+        assert result.success is False
+        assert result.metadata.get("contract_status") == "PARTIAL"
+        assert result.metadata.get("mode") == "no-input"
 
-        undetected = [f for f in result.findings if f["finding_type"] == "persistence_undetected"]
-        assert len(undetected) == len(PERSISTENCE_TECHNIQUES)
-
-    def test_offline_coverage_zero(self, plugin: PersistenceValidator) -> None:
+    def test_offline_coverage_partial_no_findings(self, plugin: PersistenceValidator) -> None:
         result = plugin.execute({"targets": ["10.0.0.1"]})
-        coverage = [f for f in result.findings if f["finding_type"] == "persistence_coverage"]
-        assert len(coverage) == 1
-        assert coverage[0]["metadata"]["coverage_percent"] == 0.0
+        assert result.success is False
+        assert result.findings == []
 
-    def test_offline_coverage_severity_high(self, plugin: PersistenceValidator) -> None:
+    def test_offline_returns_error_message(self, plugin: PersistenceValidator) -> None:
         result = plugin.execute({"targets": ["10.0.0.1"]})
-        coverage = [f for f in result.findings if f["finding_type"] == "persistence_coverage"]
-        # 0% coverage → severity is high
-        assert coverage[0]["severity"] == "high"
+        assert len(result.errors) > 0
+        assert "alert_endpoint" in result.errors[0]
 
-    def test_offline_target_from_context(self, plugin: PersistenceValidator) -> None:
+    def test_offline_no_target_leakage(self, plugin: PersistenceValidator) -> None:
         result = plugin.execute({"targets": ["192.168.1.100"]})
-        for f in result.findings:
-            assert f["target"] == "192.168.1.100"
+        # No findings produced in PARTIAL mode
+        assert result.findings == []
 
-    def test_offline_metadata_counts(self, plugin: PersistenceValidator) -> None:
+    def test_offline_metadata_partial(self, plugin: PersistenceValidator) -> None:
         result = plugin.execute({"targets": ["10.0.0.1"]})
-        assert result.metadata["techniques_in_scope"] == 5
-        assert result.metadata["techniques_injected"] == 5
-        assert result.metadata["techniques_detected"] == 0
+        assert result.metadata["mode"] == "no-input"
+        assert result.metadata["contract_status"] == "PARTIAL"
 
 
 # ---------------------------------------------------------------------------
@@ -152,29 +148,27 @@ class TestPersistenceOffline:
 
 
 class TestPersistenceCustomScope:
-    def test_custom_scope_limits_techniques(self, plugin: PersistenceValidator) -> None:
+    def test_custom_scope_no_endpoints_partial(self, plugin: PersistenceValidator) -> None:
         result = plugin.execute(
             {
                 "targets": ["10.0.0.1"],
                 "persistence_scope": ["T1053.005", "T1547.001"],
             }
         )
-        undetected = [f for f in result.findings if f["finding_type"] == "persistence_undetected"]
-        # Only 2 techniques in scope, so only 2 undetected findings
-        assert len(undetected) == 2
+        # No endpoints → PARTIAL regardless of scope
+        assert result.success is False
+        assert result.metadata.get("contract_status") == "PARTIAL"
 
-    def test_custom_scope_invalid_ids_ignored(self, plugin: PersistenceValidator) -> None:
+    def test_custom_scope_invalid_ids_partial(self, plugin: PersistenceValidator) -> None:
         result = plugin.execute(
             {
                 "targets": ["10.0.0.1"],
                 "persistence_scope": ["T9999.999"],
             }
         )
-        undetected = [f for f in result.findings if f["finding_type"] == "persistence_undetected"]
-        assert len(undetected) == 0
-        # Only coverage finding remains
-        coverage = [f for f in result.findings if f["finding_type"] == "persistence_coverage"]
-        assert len(coverage) == 1
+        # No endpoints → PARTIAL
+        assert result.success is False
+        assert result.metadata.get("contract_status") == "PARTIAL"
 
 
 # ---------------------------------------------------------------------------

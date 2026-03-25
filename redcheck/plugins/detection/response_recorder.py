@@ -58,6 +58,19 @@ class DetectionResponseRecorder(BasePlugin):
         detected_techniques: set[str] = set()
         upstream_plugins = context.get("upstream_plugins", {})
 
+        # No upstream data at all → PARTIAL
+        if not upstream and not upstream_plugins:
+            return PluginResult(
+                plugin_name=self.name,
+                success=False,
+                findings=[],
+                errors=[
+                    "No upstream_findings or upstream_plugins in context"
+                    " — run detection plugins first or enable chain_mode"
+                ],
+                metadata={"mode": "no-input", "contract_status": "PARTIAL"},
+            )
+
         # Extract detected techniques from detection-coverage plugin results
         if isinstance(upstream_plugins, dict):
             cov_result = upstream_plugins.get("detection-coverage")

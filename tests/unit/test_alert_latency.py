@@ -283,16 +283,16 @@ class TestAlertLatencyTesterPlugin:
         assert result.metadata.get("mode") == "dry-run"
 
     def test_no_simulated_data_no_endpoints(self) -> None:
-        """No endpoints and no simulated data → empty results."""
+        """No endpoints and no simulated data → PARTIAL."""
         p = AlertLatencyTester()
         ctx = self._make_context(
             expected_latency_ms=100.0,
             latency_probe_count=2,
         )
         result = p.execute(ctx)
-        assert result.success is True
-        # No simulated data → no probes resolve → stats still computed
-        assert result.metadata["probe_count"] >= 0
+        assert result.success is False
+        assert result.metadata.get("contract_status") == "PARTIAL"
+        assert result.metadata.get("mode") == "no-input"
 
 
 # =====================================================================

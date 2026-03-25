@@ -58,11 +58,9 @@ class TestResponseRecorderRegistration:
 class TestResponseRecorderEmpty:
     def test_no_upstream(self, plugin: DetectionResponseRecorder) -> None:
         result = plugin.execute({})
-        assert result.success
-        # Should only have the matrix finding
-        matrix = [f for f in result.findings if f["finding_type"] == "detection_response_matrix"]
-        assert len(matrix) == 1
-        assert matrix[0]["metadata"]["total_techniques_with_findings"] == 0
+        assert result.success is False
+        assert result.metadata.get("contract_status") == "PARTIAL"
+        assert result.metadata.get("mode") == "no-input"
 
     def test_upstream_without_mitre(self, plugin: DetectionResponseRecorder) -> None:
         upstream = [
