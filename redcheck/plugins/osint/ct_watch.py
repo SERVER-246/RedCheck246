@@ -136,6 +136,11 @@ class CTLogMonitor(BasePlugin):
                     errors.append(f"{domain}: {exc}")
 
         elapsed = (time.monotonic() - start) * 1000
+        self.capture_evidence(
+            context,
+            f"{len(findings)} ct_log findings".encode(),
+            "ct_log_query",
+        )
         return PluginResult(
             plugin_name=self.name,
             success=True,

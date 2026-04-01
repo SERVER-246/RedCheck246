@@ -188,6 +188,7 @@ class TestPipelineExecutor:
 
     @pytest.mark.asyncio
     async def test_chain_mode_without_control_raises(self, executor, engagement):
+        engagement.offensive_controls = OffensiveControls(chain_mode=False)
         with pytest.raises(ChainModeError):
             await executor.execute_pipeline(engagement, ["p1"], chain=True)
 

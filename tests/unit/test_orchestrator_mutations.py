@@ -697,7 +697,9 @@ class TestRunPluginMutations:
         orch.run_plugin("json-ctx-capture")
         # In JSON mode, datetimes are serialized as strings
         # If mode is invalid, this will either fail or have datetime objects
-        json_str = json.dumps(captured_ctx)
+        # _runtime contains non-serializable objects (EvidenceStore, factories)
+        serializable_ctx = {k: v for k, v in captured_ctx.items() if k != "_runtime"}
+        json_str = json.dumps(serializable_ctx)
         assert isinstance(json_str, str)
         assert isinstance(captured_ctx.get("start_time_utc"), str)
 

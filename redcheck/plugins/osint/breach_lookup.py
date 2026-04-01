@@ -167,6 +167,11 @@ class BreachLookup(BasePlugin):
                     errors.append(f"Breach check error: {exc}")
 
         elapsed = (time.monotonic() - start) * 1000
+        self.capture_evidence(
+            context,
+            f"{len(findings)} breach findings".encode(),
+            "breach_check",
+        )
         return PluginResult(
             plugin_name=self.name,
             success=True,

@@ -204,6 +204,11 @@ class InternalNetworkDiscoveryEngine(BasePlugin):
         topology = self._topology.to_dict()
         elapsed = (time.monotonic() - start) * 1000
 
+        self.capture_evidence(
+            context,
+            f"{len(findings)} discovery findings".encode(),
+            "network_discovery",
+        )
         return PluginResult(
             plugin_name=self.name,
             success=len(errors) == 0,

@@ -219,6 +219,11 @@ class PasswordEntropyScorer(BasePlugin):
             )
 
         elapsed = (time.monotonic() - start) * 1000
+        self.capture_evidence(
+            context,
+            f"{len(findings)} password findings".encode(),
+            "password_analysis",
+        )
         return PluginResult(
             plugin_name=self.name,
             success=True,

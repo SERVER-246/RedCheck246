@@ -83,6 +83,13 @@ def _is_capability_allowed(mode: RuntimeMode, capability: PluginCapability) -> b
     return _CAPABILITY_MODE_MATRIX.get(mode, {}).get(capability, False)
 
 
+def _http_client_factory(plugin_name: str, **kwargs: Any) -> Any:
+    """Create a RedCheckHTTPClient for a plugin."""
+    from redcheck.plugins._http import RedCheckHTTPClient
+
+    return RedCheckHTTPClient(plugin_name=plugin_name, **kwargs)
+
+
 class Orchestrator:
     """Central orchestrator for RedCheck engagements."""
 
@@ -191,6 +198,31 @@ class Orchestrator:
                 context.setdefault("reports_dir", str(roe_parent / "reports"))
         if extra_context:
             context.update(extra_context)
+
+        # Inject non-serializable runtime objects into _runtime sub-dict
+        runtime: dict[str, Any] = {}
+        if self._evidence_store is not None:
+            runtime["evidence_store"] = self._evidence_store
+        runtime["http_client_factory"] = _http_client_factory
+        context["_runtime"] = runtime
+
+        # Enforce allowed_tests (mirrors Step 5b of arun_plugin)
+        if self._current_engagement and self._current_engagement.allowed_tests:
+            allowed = self._current_engagement.allowed_tests
+            if "*" not in allowed:
+                plugin_category = getattr(plugin, "category", "")
+                name_prefix = plugin_name.split(".")[0] if "." in plugin_name else ""
+                if (
+                    plugin_name not in allowed
+                    and plugin_category not in allowed
+                    and name_prefix not in allowed
+                ):
+                    eid = self._current_engagement.engagement_id
+                    raise PolicyDeniedException(
+                        plugin_name,
+                        f"Plugin '{plugin_name}' not in allowed tests: {allowed}",
+                        engagement_id=eid,
+                    )
 
         if dry_run:
             log.info("plugin_dry_run", plugin=plugin_name)
@@ -330,7 +362,7 @@ class Orchestrator:
             raise ActivationError("Activation code not verified", engagement_id=eid)
 
         # Step 5b — Enforce allowed_tests
-        if engagement.allowed_tests:
+        if engagement.allowed_tests and "*" not in engagement.allowed_tests:
             plugin_category = getattr(plugin, "category", "")
             name_prefix = plugin_name.split(".")[0] if "." in plugin_name else ""
             if (
@@ -394,6 +426,11 @@ class Orchestrator:
         context["plugin_category"] = getattr(plugin, "category", "")
         if extra_context:
             context.update(extra_context)
+        runtime_async: dict[str, Any] = {}
+        if self._evidence_store is not None:
+            runtime_async["evidence_store"] = self._evidence_store
+        runtime_async["http_client_factory"] = _http_client_factory
+        context["_runtime"] = runtime_async
 
         log.info("async_plugin_execute", plugin=plugin_name, engagement_id=eid)
         self.audit.log(

@@ -121,6 +121,11 @@ class AuthenticatedSessionTester(BasePlugin):
                     errors.append(f"{url}: {exc}")
 
         elapsed = (time.monotonic() - start) * 1000
+        self.capture_evidence(
+            context,
+            f"{len(findings)} auth findings".encode(),
+            "auth_test",
+        )
         return PluginResult(
             plugin_name=self.name,
             success=len(errors) == 0,

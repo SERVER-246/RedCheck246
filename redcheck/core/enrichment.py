@@ -228,18 +228,26 @@ def enrich_finding(finding: Any) -> bool:
 
     if not metadata.get("cwe_id") and entry.get("cwe_id"):
         metadata["cwe_id"] = entry["cwe_id"]
+        if hasattr(finding, "cwe_id") and not finding.cwe_id:
+            finding.cwe_id = entry["cwe_id"]
         enriched = True
 
     if not metadata.get("cvss_score") and entry.get("cvss_score"):
         metadata["cvss_score"] = entry["cvss_score"]
+        if hasattr(finding, "cvss_score") and finding.cvss_score is None:
+            finding.cvss_score = entry["cvss_score"]
         enriched = True
 
     if not metadata.get("remediation") and entry.get("remediation"):
         metadata["remediation"] = entry["remediation"]
+        if hasattr(finding, "remediation") and not finding.remediation:
+            finding.remediation = entry["remediation"]
         enriched = True
 
     if not metadata.get("mitre_technique") and entry.get("mitre_technique"):
         metadata["mitre_technique"] = entry["mitre_technique"]
+        if hasattr(finding, "mitre_technique") and not finding.mitre_technique:
+            finding.mitre_technique = entry["mitre_technique"]
         enriched = True
 
     return enriched

@@ -625,6 +625,11 @@ class SASTPlugin(BasePlugin):
             final,
         )
 
+        self.capture_evidence(
+            context,
+            f"{len(final)} sast findings".encode(),
+            "sast_scan",
+        )
         return PluginResult(
             plugin_name=self.name,
             success=True,

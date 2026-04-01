@@ -126,6 +126,11 @@ class LateralMovementAnalyzer(BasePlugin):
         findings.extend(seg_findings)
 
         duration_ms = (time.monotonic() - start) * 1000
+        self.capture_evidence(
+            context,
+            f"{len(findings)} lateral findings".encode(),
+            "lateral_movement",
+        )
         return PluginResult(
             plugin_name=self.name,
             success=True,

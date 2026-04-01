@@ -357,6 +357,11 @@ class FuzzingPlugin(BasePlugin):
             except Exception as exc:
                 errors.append(f"Fuzzing error on {host}: {exc}")
 
+        self.capture_evidence(
+            context,
+            f"{len(all_findings)} fuzz findings".encode(),
+            "fuzz_results",
+        )
         return PluginResult(
             plugin_name=self.name,
             success=True,

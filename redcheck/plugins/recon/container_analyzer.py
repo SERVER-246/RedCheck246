@@ -131,6 +131,11 @@ class ContainerAnalyzer(BasePlugin):
             )
 
         duration_ms = (time.monotonic() - start) * 1000
+        self.capture_evidence(
+            context,
+            f"{len(findings)} container findings".encode(),
+            "container_analysis",
+        )
         return PluginResult(
             plugin_name=self.name,
             success=True,

@@ -299,6 +299,11 @@ class AlertLatencyTester(BasePlugin):
 
         elapsed_ms = (time.monotonic() - start) * 1000
 
+        self.capture_evidence(
+            context,
+            f"{len(findings)} latency findings".encode(),
+            "alert_latency",
+        )
         return PluginResult(
             plugin_name=self.name,
             success=True,
@@ -313,5 +318,6 @@ class AlertLatencyTester(BasePlugin):
                 "sla_met": sla_met,
                 "timeout_count": stats["timeout_count"],
                 "elapsed_ms": round(elapsed_ms, 2),
+                "simulation_depth": 2,
             },
         )

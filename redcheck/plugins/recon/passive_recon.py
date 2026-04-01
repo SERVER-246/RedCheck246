@@ -361,6 +361,11 @@ class PassiveReconPlugin(BasePlugin):
             "email_harvest",
         ]
 
+        self.capture_evidence(
+            context,
+            f"{len(all_findings)} recon findings".encode(),
+            "passive_recon",
+        )
         return PluginResult(
             plugin_name=self.name,
             success=True,

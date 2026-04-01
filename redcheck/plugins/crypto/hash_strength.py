@@ -253,6 +253,11 @@ class OfflineHashStrengthAnalyzer(BasePlugin):
             )
 
         elapsed = (time.monotonic() - start) * 1000
+        self.capture_evidence(
+            context,
+            f"{len(findings)} hash findings".encode(),
+            "hash_analysis",
+        )
         return PluginResult(
             plugin_name=self.name,
             success=True,

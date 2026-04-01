@@ -244,6 +244,11 @@ class TyposquatDetector(BasePlugin):
                 )
 
         elapsed = (time.monotonic() - start) * 1000
+        self.capture_evidence(
+            context,
+            f"{len(findings)} typosquat findings".encode(),
+            "typosquat_detection",
+        )
         return PluginResult(
             plugin_name=self.name,
             success=True,

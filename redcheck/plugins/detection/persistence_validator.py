@@ -252,6 +252,11 @@ class PersistenceValidator(BasePlugin):
         )
 
         duration_ms = (time.monotonic() - start) * 1000
+        self.capture_evidence(
+            context,
+            f"{len(findings)} persistence findings".encode(),
+            "persistence_validation",
+        )
         return PluginResult(
             plugin_name=self.name,
             success=True,
@@ -262,5 +267,6 @@ class PersistenceValidator(BasePlugin):
                 "techniques_in_scope": len(scope),
                 "techniques_injected": len(injected),
                 "techniques_detected": len(detected),
+                "simulation_depth": 3,
             },
         )

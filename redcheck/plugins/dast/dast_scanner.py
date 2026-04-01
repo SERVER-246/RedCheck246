@@ -526,6 +526,11 @@ class DASTPlugin(BasePlugin):
             except Exception as exc:
                 errors.append(f"Error scanning {host}: {exc}")
 
+        self.capture_evidence(
+            context,
+            f"{len(all_findings)} dast findings".encode(),
+            "dast_scan",
+        )
         return PluginResult(
             plugin_name=self.name,
             success=True,

@@ -29,7 +29,7 @@ class TestOffensiveControlsDefaults:
         assert oc.allow_data_sampling is False
         assert oc.allow_credential_spraying is False
         assert oc.allow_privesc_probing is False
-        assert oc.chain_mode is False
+        assert oc.chain_mode is True
 
     def test_instantiate_with_no_args(self):
         oc = OffensiveControls()
@@ -39,7 +39,10 @@ class TestOffensiveControlsDefaults:
         oc = OffensiveControls()
         d = oc.model_dump()
         for key, value in d.items():
-            assert value is False, f"{key} should be False"
+            if key == "chain_mode":
+                assert value is True, "chain_mode should default to True"
+            else:
+                assert value is False, f"{key} should be False"
 
 
 # ---------------------------------------------------------------------------
@@ -135,11 +138,6 @@ class TestHasControls:
     )
     def test_has_controls_permutations(self, enabled_flags: tuple[str, ...]):
         """Parametrized: enabled flags pass, disabled ones fail."""
-        kwargs = dict.fromkeys(enabled_flags, True)
-        oc = OffensiveControls(**kwargs)
-        # All enabled flags should pass
-        assert oc.has_controls(list(enabled_flags)) is True
-        # Any flag NOT in enabled_flags should cause failure
         all_flags = {
             "allow_auth_testing",
             "allow_exploit_validation",
@@ -148,6 +146,12 @@ class TestHasControls:
             "allow_privesc_probing",
             "chain_mode",
         }
+        # Explicitly set all flags: enabled ones True, rest False
+        kwargs = {f: (f in enabled_flags) for f in all_flags}
+        oc = OffensiveControls(**kwargs)
+        # All enabled flags should pass
+        assert oc.has_controls(list(enabled_flags)) is True
+        # Any flag NOT in enabled_flags should cause failure
         disabled = all_flags - set(enabled_flags)
         if disabled:
             # Asking for a disabled flag should return False

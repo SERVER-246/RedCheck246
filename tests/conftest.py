@@ -78,7 +78,33 @@ def _make_roe(
         "authorized_targets": [
             {"host": h, "ports": [80, 443]} for h in (hosts or ["testhost.local"])
         ],
-        "allowed_tests": tests or ["passive-recon", "sast-scanner"],
+        "allowed_tests": tests
+        if tests is not None
+        else [
+            "passive-recon",
+            "sast-scanner",
+            "stub-test",
+            "fail-test",
+            "ctx-capture",
+            "ctx-capture2",
+            "ctx-capture3",
+            "ctx-capture4",
+            "auth-check",
+            "bad-ctx",
+            "empty-ctx-capture2",
+            "json-ctx-capture",
+            "async-stub",
+            "active-test",
+            "destructive-test",
+            "failing-async",
+            "no-aexecute",
+            "no-aexecute-fixed",
+            "destruct-no-isol-attr",
+            "destruct-no-isol-needed",
+            "dryrun-capture",
+            "exec-capture",
+            "integration-destructive-stub",
+        ],
         "start_time_utc": (now + timedelta(hours=start_offset_hours)).strftime(
             "%Y-%m-%dT%H:%M:%SZ"
         ),

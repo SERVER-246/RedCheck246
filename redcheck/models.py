@@ -100,7 +100,7 @@ class OffensiveControls(BaseModel):
     allow_data_sampling: bool = False
     allow_credential_spraying: bool = False
     allow_privesc_probing: bool = False
-    chain_mode: bool = False
+    chain_mode: bool = True
 
     def has_controls(self, required: list[str]) -> bool:
         """Check if all required control flags are True."""

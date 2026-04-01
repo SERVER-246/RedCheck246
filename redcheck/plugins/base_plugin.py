@@ -126,6 +126,10 @@ class BasePlugin(ABC):
         """
         store = context.get("evidence_store")
         if store is None:
+            # Check _runtime sub-dict (non-serializable runtime objects)
+            runtime = context.get("_runtime", {})
+            store = runtime.get("evidence_store")
+        if store is None:
             return None
         return store.store(
             data,

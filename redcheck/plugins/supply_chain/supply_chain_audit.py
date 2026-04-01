@@ -381,6 +381,11 @@ class SupplyChainPlugin(BasePlugin):
         degraded = any(f.get("data", {}).get("degraded") for f in all_findings)
         metadata["degraded"] = degraded
 
+        self.capture_evidence(
+            context,
+            f"{len(all_findings)} supply_chain findings".encode(),
+            "supply_chain_audit",
+        )
         return PluginResult(
             plugin_name=self.name,
             success=True,

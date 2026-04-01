@@ -182,6 +182,11 @@ class DetectionResponseRecorder(BasePlugin):
         )
 
         duration_ms = (time.monotonic() - start) * 1000
+        self.capture_evidence(
+            context,
+            f"{len(findings)} response findings".encode(),
+            "response_matrix",
+        )
         return PluginResult(
             plugin_name=self.name,
             success=True,
@@ -190,5 +195,6 @@ class DetectionResponseRecorder(BasePlugin):
                 "duration_ms": round(duration_ms, 2),
                 "techniques_analyzed": total,
                 "blind_spots": blind_spot_count,
+                "simulation_depth": 2,
             },
         )

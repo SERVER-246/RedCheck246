@@ -184,6 +184,11 @@ class InjectionProofOfCondition(BasePlugin):
                     findings.extend(ssti_results)
 
         elapsed = (time.monotonic() - start) * 1000
+        self.capture_evidence(
+            context,
+            f"{len(findings)} injection findings".encode(),
+            "injection_test",
+        )
         return PluginResult(
             plugin_name=self.name,
             success=True,

@@ -386,6 +386,11 @@ class DetectionCoverageValidator(BasePlugin):
 
         elapsed_ms = (time.monotonic() - start) * 1000
 
+        self.capture_evidence(
+            context,
+            f"{len(findings)} coverage findings".encode(),
+            "detection_coverage",
+        )
         return PluginResult(
             plugin_name=self.name,
             success=True,
@@ -398,5 +403,6 @@ class DetectionCoverageValidator(BasePlugin):
                 "markers_generated": len(markers),
                 "seed": seed,
                 "elapsed_ms": round(elapsed_ms, 2),
+                "simulation_depth": 2,
             },
         )

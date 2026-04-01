@@ -269,7 +269,17 @@ class TestTestModeController:
         orch = MagicMock(spec=Orchestrator)
         otp = MagicMock(spec=OTPEngine)
         ctrl = TestModeController(orch, otp)
-        eng = _make_engagement()  # chain_mode defaults to False
+        eng = _make_engagement()
+        # Explicitly disable chain_mode to test rejection
+        eng = eng.model_copy(
+            update={
+                "offensive_controls": OffensiveControls(
+                    chain_mode=False,
+                    allow_auth_testing=True,
+                    allow_exploit_validation=True,
+                )
+            }
+        )
 
         with pytest.raises(ChainModeError):
             asyncio.run(ctrl.run_test_mode(eng, ["p1"], chain=True))

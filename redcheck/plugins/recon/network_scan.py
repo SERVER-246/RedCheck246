@@ -377,6 +377,11 @@ class NetworkScanner(BasePlugin):
         topology = self._topology.to_dict()
 
         elapsed = (time.monotonic() - start) * 1000
+        self.capture_evidence(
+            context,
+            f"{len(findings)} scan findings".encode(),
+            "network_scan",
+        )
         return PluginResult(
             plugin_name=self.name,
             success=len(errors) == 0,
