@@ -23,7 +23,7 @@ from typing import Any
 import httpx
 
 from redcheck.plugins._http import scanning_ssl_context
-from redcheck.plugins.base_plugin import BasePlugin, PluginResult
+from redcheck.plugins.base_plugin import BasePlugin, PluginResult, plugin_dependencies
 from redcheck.plugins.dast.wordlists import SENSITIVE_PATHS
 
 _HTTP_TIMEOUT = 10.0
@@ -499,6 +499,11 @@ async def check_cors(url: str) -> list[dict[str, Any]]:
 # ---------------------------------------------------------------------------
 
 
+@plugin_dependencies(
+    required=["passive-recon"],
+    optional=["network-scanner"],
+    provides=["web_vulns", "headers", "forms"],
+)
 class DASTPlugin(BasePlugin):
     """Dynamic Application Security Testing — live target scanning."""
 

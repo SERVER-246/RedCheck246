@@ -21,7 +21,7 @@ import structlog
 
 from redcheck.models import PluginCapability
 from redcheck.plugins._http import scanning_ssl_context
-from redcheck.plugins.base_plugin import BasePlugin, PluginResult
+from redcheck.plugins.base_plugin import BasePlugin, PluginResult, plugin_dependencies
 
 log = structlog.get_logger(__name__)
 
@@ -56,6 +56,11 @@ def _parse_ct_entry(entry: dict[str, Any], base_domain: str) -> dict[str, Any]:
     }
 
 
+@plugin_dependencies(
+    required=["passive-recon"],
+    optional=[],
+    provides=["cert_history"],
+)
 class CTLogMonitor(BasePlugin):
     """Discover certificates via public CT log queries.
 

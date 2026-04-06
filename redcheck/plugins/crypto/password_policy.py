@@ -14,7 +14,7 @@ from typing import Any
 import structlog
 
 from redcheck.models import PluginCapability
-from redcheck.plugins.base_plugin import BasePlugin, PluginResult
+from redcheck.plugins.base_plugin import BasePlugin, PluginResult, plugin_dependencies
 
 log = structlog.get_logger(__name__)
 
@@ -132,6 +132,11 @@ def check_weak_patterns(password: str) -> list[str]:
     return found
 
 
+@plugin_dependencies(
+    required=[],
+    optional=["sast-scanner", "auth-session-tester"],
+    provides=["entropy_analysis"],
+)
 class PasswordEntropyScorer(BasePlugin):
     """Evaluate password and policy entropy.
 

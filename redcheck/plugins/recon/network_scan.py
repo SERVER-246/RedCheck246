@@ -27,7 +27,7 @@ from redcheck.core.scope_validator import ScopeValidator
 from redcheck.core.token_bucket import TokenBucket
 from redcheck.core.topology import HostNode, TopologyEngine
 from redcheck.models import PluginCapability
-from redcheck.plugins.base_plugin import BasePlugin, PluginResult
+from redcheck.plugins.base_plugin import BasePlugin, PluginResult, plugin_dependencies
 from redcheck.plugins.recon.packet_craft import PacketCraft
 
 log = structlog.get_logger(__name__)
@@ -186,6 +186,11 @@ class ServiceVersionDetector:
 # ---------------------------------------------------------------------------
 
 
+@plugin_dependencies(
+    required=[],
+    optional=[],
+    provides=["open_ports", "services", "banners"],
+)
 class NetworkScanner(BasePlugin):
     """Active network and infrastructure discovery plugin.
 

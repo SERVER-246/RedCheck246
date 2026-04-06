@@ -16,7 +16,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-from redcheck.plugins.base_plugin import BasePlugin, PluginResult
+from redcheck.plugins.base_plugin import BasePlugin, PluginResult, plugin_dependencies
 
 # ---------------------------------------------------------------------------
 # Custom regex patterns
@@ -505,6 +505,11 @@ def _build_noise_summary(
 # ---------------------------------------------------------------------------
 
 
+@plugin_dependencies(
+    required=[],
+    optional=[],
+    provides=["code_vulns", "hardcoded_creds"],
+)
 class SASTPlugin(BasePlugin):
     """Static Application Security Testing — source code analysis."""
 

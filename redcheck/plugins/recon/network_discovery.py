@@ -25,7 +25,7 @@ from redcheck.core.scope_validator import ScopeValidator
 from redcheck.core.token_bucket import TokenBucket
 from redcheck.core.topology import HostNode, TopologyEngine
 from redcheck.models import PluginCapability
-from redcheck.plugins.base_plugin import BasePlugin, PluginResult
+from redcheck.plugins.base_plugin import BasePlugin, PluginResult, plugin_dependencies
 from redcheck.plugins.recon.network_scan import ServiceVersionDetector
 
 log = structlog.get_logger(__name__)
@@ -76,6 +76,11 @@ _UDP_PROBES: dict[int, bytes] = {
 }
 
 
+@plugin_dependencies(
+    required=[],
+    optional=[],
+    provides=["topology", "host_map"],
+)
 class InternalNetworkDiscoveryEngine(BasePlugin):
     """Internal network discovery with ARP scan, UDP probe, and OS fingerprint.
 

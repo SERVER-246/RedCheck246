@@ -27,7 +27,7 @@ import structlog
 from redcheck.exceptions import OffensiveControlError
 from redcheck.models import OffensiveControls, PluginCapability
 from redcheck.plugins._http import scanning_ssl_context
-from redcheck.plugins.base_plugin import BasePlugin, PluginResult
+from redcheck.plugins.base_plugin import BasePlugin, PluginResult, plugin_dependencies
 
 log = structlog.get_logger(__name__)
 
@@ -86,6 +86,11 @@ _SSTI_CANARY_PAYLOADS: list[dict[str, str]] = [
 ]
 
 
+@plugin_dependencies(
+    required=["dast-scanner"],
+    optional=[],
+    provides=["injection_proofs"],
+)
 class InjectionProofOfCondition(BasePlugin):
     """Safe injection PoC validation.
 

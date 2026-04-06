@@ -16,7 +16,7 @@ from typing import Any
 import structlog
 
 from redcheck.models import PluginCapability
-from redcheck.plugins.base_plugin import BasePlugin, PluginResult
+from redcheck.plugins.base_plugin import BasePlugin, PluginResult, plugin_dependencies
 
 log = structlog.get_logger(__name__)
 
@@ -160,6 +160,11 @@ async def _dns_resolve(domain: str) -> str | None:
         return None
 
 
+@plugin_dependencies(
+    required=["supply-chain-audit"],
+    optional=[],
+    provides=["typosquat_risks"],
+)
 class TyposquatDetector(BasePlugin):
     """Detect typosquat domains that resolve in DNS.
 

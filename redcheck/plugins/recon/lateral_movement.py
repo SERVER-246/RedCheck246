@@ -20,7 +20,7 @@ from typing import Any
 import structlog
 
 from redcheck.models import PluginCapability
-from redcheck.plugins.base_plugin import BasePlugin, PluginResult
+from redcheck.plugins.base_plugin import BasePlugin, PluginResult, plugin_dependencies
 
 log = structlog.get_logger(__name__)
 
@@ -31,6 +31,11 @@ log = structlog.get_logger(__name__)
 _MANAGEMENT_PORTS: frozenset[int] = frozenset({22, 3389, 5985, 5986, 23, 445})
 
 
+@plugin_dependencies(
+    required=["network-scanner", "network-discovery"],
+    optional=["cve-mapper"],
+    provides=["movement_paths"],
+)
 class LateralMovementAnalyzer(BasePlugin):
     """Analyze lateral movement potential across discovered hosts.
 

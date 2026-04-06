@@ -16,11 +16,16 @@ import structlog
 from redcheck.exceptions import OffensiveControlError
 from redcheck.models import OffensiveControls, PluginCapability
 from redcheck.plugins._http import scanning_ssl_context
-from redcheck.plugins.base_plugin import BasePlugin, PluginResult
+from redcheck.plugins.base_plugin import BasePlugin, PluginResult, plugin_dependencies
 
 log = structlog.get_logger(__name__)
 
 
+@plugin_dependencies(
+    required=["dast-scanner"],
+    optional=[],
+    provides=["session_vulns", "cookies"],
+)
 class AuthenticatedSessionTester(BasePlugin):
     """Test authentication mechanisms on web applications.
 

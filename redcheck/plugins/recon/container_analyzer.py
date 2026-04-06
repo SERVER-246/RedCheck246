@@ -24,7 +24,7 @@ from typing import Any
 import structlog
 
 from redcheck.models import PluginCapability
-from redcheck.plugins.base_plugin import BasePlugin, PluginResult
+from redcheck.plugins.base_plugin import BasePlugin, PluginResult, plugin_dependencies
 
 log = structlog.get_logger(__name__)
 
@@ -49,6 +49,11 @@ _CONTAINER_INDICATORS = (
 )
 
 
+@plugin_dependencies(
+    required=[],
+    optional=[],
+    provides=["container_info", "image_data"],
+)
 class ContainerAnalyzer(BasePlugin):
     """Analyze container environment configurations.
 

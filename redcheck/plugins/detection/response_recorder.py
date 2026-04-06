@@ -18,11 +18,16 @@ from typing import Any
 import structlog
 
 from redcheck.models import PluginCapability
-from redcheck.plugins.base_plugin import BasePlugin, PluginResult
+from redcheck.plugins.base_plugin import BasePlugin, PluginResult, plugin_dependencies
 
 log = structlog.get_logger(__name__)
 
 
+@plugin_dependencies(
+    required=["alert-latency", "detection-coverage"],
+    optional=[],
+    provides=["effectiveness_matrix"],
+)
 class DetectionResponseRecorder(BasePlugin):
     """Record and analyze defensive monitoring responses.
 

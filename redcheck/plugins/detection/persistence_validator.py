@@ -22,7 +22,7 @@ import structlog
 from redcheck import constants
 from redcheck.models import PluginCapability
 from redcheck.plugins._http import scanning_ssl_context
-from redcheck.plugins.base_plugin import BasePlugin, PluginResult
+from redcheck.plugins.base_plugin import BasePlugin, PluginResult, plugin_dependencies
 
 log = structlog.get_logger(__name__)
 
@@ -72,6 +72,11 @@ def generate_persistence_marker(
 # ---------------------------------------------------------------------------
 
 
+@plugin_dependencies(
+    required=[],
+    optional=["detection-coverage"],
+    provides=["persistence_results"],
+)
 class PersistenceValidator(BasePlugin):
     """Validate detection of persistence techniques.
 

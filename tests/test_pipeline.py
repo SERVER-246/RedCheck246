@@ -169,11 +169,11 @@ class TestPipelineExecutor:
             detail="Open port 22 - SSH",
             severity=FindingSeverity.INFO,
         )
-        result_with_findings = _make_result("recon", findings=[finding])
+        result_with_findings = _make_result("fake-recon", findings=[finding])
 
         async def mock_run(name, _eng, *, dry_run=False, extra_context=None):
             captured_extra.append(extra_context)
-            if name == "recon":
+            if name == "fake-recon":
                 return result_with_findings
             return _make_result(name)
 
@@ -183,7 +183,7 @@ class TestPipelineExecutor:
         pipe = PipelineExecutor(orch)
         eng = _make_engagement(chain_mode=True)
 
-        asyncio.run(pipe.execute_pipeline(eng, ["recon", "dast"], chain=True))
+        asyncio.run(pipe.execute_pipeline(eng, ["fake-recon", "fake-dast"], chain=True))
 
         # First plugin: no upstream context
         assert captured_extra[0] is None
@@ -191,7 +191,7 @@ class TestPipelineExecutor:
         assert captured_extra[1] is not None
         assert "upstream_findings" in captured_extra[1]
         assert "upstream_plugins" in captured_extra[1]
-        assert captured_extra[1]["upstream_plugins"] == ["recon"]
+        assert captured_extra[1]["upstream_plugins"] == ["fake-recon"]
         assert len(captured_extra[1]["upstream_findings"]) == 1
         assert "discovered_services" in captured_extra[1]
 
@@ -205,11 +205,11 @@ class TestPipelineExecutor:
             detail="HTTP service on port 80 - Apache",
             severity=FindingSeverity.INFO,
         )
-        result_with_service = _make_result("recon", findings=[finding])
+        result_with_service = _make_result("fake-recon", findings=[finding])
 
         async def mock_run(name, _eng, *, dry_run=False, extra_context=None):
             captured_extra.append(extra_context)
-            if name == "recon":
+            if name == "fake-recon":
                 return result_with_service
             return _make_result(name)
 
@@ -219,7 +219,7 @@ class TestPipelineExecutor:
         pipe = PipelineExecutor(orch)
         eng = _make_engagement(chain_mode=True)
 
-        asyncio.run(pipe.execute_pipeline(eng, ["recon", "cve-mapper"], chain=True))
+        asyncio.run(pipe.execute_pipeline(eng, ["fake-recon", "fake-cve"], chain=True))
         assert len(captured_extra[1]["discovered_services"]) == 1
 
     def test_plugin_failure_isolated_not_raised(self):

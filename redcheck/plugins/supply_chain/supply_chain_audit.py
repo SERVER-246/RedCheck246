@@ -20,7 +20,7 @@ from typing import Any
 
 import httpx
 
-from redcheck.plugins.base_plugin import BasePlugin, PluginResult
+from redcheck.plugins.base_plugin import BasePlugin, PluginResult, plugin_dependencies
 from redcheck.plugins.supply_chain.osv_client import OSVClient, severity_from_cvss
 from redcheck.plugins.supply_chain.parsers import (
     discover_dependency_files,
@@ -299,6 +299,11 @@ def generate_sbom(deps: list[dict[str, str]], engagement_id: str = "") -> dict[s
 # ---------------------------------------------------------------------------
 
 
+@plugin_dependencies(
+    required=[],
+    optional=[],
+    provides=["dep_vulns", "package_list"],
+)
 class SupplyChainPlugin(BasePlugin):
     """Dependency and supply chain vulnerability analysis."""
 

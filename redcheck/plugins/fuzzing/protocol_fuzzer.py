@@ -20,7 +20,7 @@ from typing import Any
 import httpx
 
 from redcheck.plugins._http import scanning_ssl_context
-from redcheck.plugins.base_plugin import BasePlugin, PluginResult
+from redcheck.plugins.base_plugin import BasePlugin, PluginResult, plugin_dependencies
 from redcheck.plugins.fuzzing.payloads import (
     ALL_PAYLOADS,
 )
@@ -322,6 +322,11 @@ def _categorise_payload(payload: str) -> str:
 # ---------------------------------------------------------------------------
 
 
+@plugin_dependencies(
+    required=["network-scanner"],
+    optional=[],
+    provides=["fuzzing_anomalies"],
+)
 class FuzzingPlugin(BasePlugin):
     """Protocol and input fuzzing — crash and anomaly detection."""
 

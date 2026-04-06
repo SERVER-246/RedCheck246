@@ -19,7 +19,7 @@ import structlog
 
 from redcheck.models import PluginCapability
 from redcheck.plugins._http import scanning_ssl_context
-from redcheck.plugins.base_plugin import BasePlugin, PluginResult
+from redcheck.plugins.base_plugin import BasePlugin, PluginResult, plugin_dependencies
 
 log = structlog.get_logger(__name__)
 
@@ -96,6 +96,11 @@ def prepare_k_anonymity(password: str) -> tuple[str, str]:
     return full_hash[:5], full_hash[5:]
 
 
+@plugin_dependencies(
+    required=["passive-recon"],
+    optional=[],
+    provides=["breach_data"],
+)
 class BreachLookup(BasePlugin):
     """Correlate credentials with public breach databases.
 

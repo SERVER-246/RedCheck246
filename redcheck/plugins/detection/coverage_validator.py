@@ -24,7 +24,7 @@ import structlog
 
 from redcheck.models import PluginCapability
 from redcheck.plugins._http import scanning_ssl_context
-from redcheck.plugins.base_plugin import BasePlugin, PluginResult
+from redcheck.plugins.base_plugin import BasePlugin, PluginResult, plugin_dependencies
 
 log = structlog.get_logger(__name__)
 
@@ -246,6 +246,11 @@ def compute_coverage(
 # ---------------------------------------------------------------------------
 
 
+@plugin_dependencies(
+    required=[],
+    optional=["alert-latency"],
+    provides=["coverage_metrics"],
+)
 class DetectionCoverageValidator(BasePlugin):
     """Validate SIEM / EDR detection coverage against MITRE ATT&CK.
 

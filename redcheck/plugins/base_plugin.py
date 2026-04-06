@@ -15,9 +15,43 @@ import structlog
 
 from redcheck.models import PluginCapability, PluginResult
 
-__all__ = ["BasePlugin", "PluginCapability", "PluginRegistry", "PluginResult"]
+__all__ = [
+    "BasePlugin",
+    "PluginCapability",
+    "PluginRegistry",
+    "PluginResult",
+    "plugin_dependencies",
+]
 
 log = structlog.get_logger(__name__)
+
+
+# ------------------------------------------------------------------
+# Plugin Dependency Decorator
+# ------------------------------------------------------------------
+
+
+def plugin_dependencies(
+    *,
+    required: list[str] | None = None,
+    optional: list[str] | None = None,
+    provides: list[str] | None = None,
+) -> Any:
+    """Declare dependency metadata on a plugin class.
+
+    Args:
+        required: Plugin names that MUST have run successfully before this plugin.
+        optional: Plugin names whose results will be injected if available.
+        provides: Data keys this plugin produces for downstream consumers.
+    """
+
+    def decorator(cls: type[BasePlugin]) -> type[BasePlugin]:
+        cls._dep_required = list(required or [])
+        cls._dep_optional = list(optional or [])
+        cls._dep_provides = list(provides or [])
+        return cls
+
+    return decorator
 
 
 # ------------------------------------------------------------------
@@ -59,6 +93,26 @@ class BasePlugin(ABC):
     rate_limit_rps: int = 10
     mitre_techniques: list[str] = []
     requires_isolation: bool = False
+
+    # Dependency metadata (set via @plugin_dependencies decorator)
+    _dep_required: list[str] = []
+    _dep_optional: list[str] = []
+    _dep_provides: list[str] = []
+
+    @property
+    def required_dependencies(self) -> list[str]:
+        """Plugin names that MUST have run successfully before this plugin."""
+        return list(self._dep_required)
+
+    @property
+    def optional_dependencies(self) -> list[str]:
+        """Plugin names whose results will be injected if available."""
+        return list(self._dep_optional)
+
+    @property
+    def dependency_provides(self) -> list[str]:
+        """Data keys this plugin produces for downstream consumers."""
+        return list(self._dep_provides)
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         super().__init_subclass__(**kwargs)

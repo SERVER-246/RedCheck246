@@ -30,7 +30,7 @@ import structlog
 
 from redcheck.models import PluginCapability
 from redcheck.plugins._http import scanning_ssl_context
-from redcheck.plugins.base_plugin import BasePlugin, PluginResult
+from redcheck.plugins.base_plugin import BasePlugin, PluginResult, plugin_dependencies
 
 log = structlog.get_logger(__name__)
 
@@ -144,6 +144,11 @@ def compute_latency_stats(results: list[LatencyResult]) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
+@plugin_dependencies(
+    required=[],
+    optional=["network-scanner"],
+    provides=["latency_metrics"],
+)
 class AlertLatencyTester(BasePlugin):
     """Measure SIEM / EDR alert latency for detection markers.
 

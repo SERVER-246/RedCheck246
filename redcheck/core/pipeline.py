@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Any
 import structlog
 
 from redcheck.exceptions import ChainModeError, PipelineError  # noqa: F401
-from redcheck.plugins.base_plugin import PluginResult
+from redcheck.plugins.base_plugin import PluginRegistry, PluginResult
 
 if TYPE_CHECKING:
     from redcheck.core.orchestrator import Orchestrator
@@ -123,6 +123,91 @@ def _extract_packages(results: dict[str, PluginResult]) -> list[str]:
     return packages
 
 
+# ------------------------------------------------------------------
+# Dependency Resolution
+# ------------------------------------------------------------------
+
+
+def resolve_execution_order(plugin_names: list[str] | None = None) -> list[list[str]]:
+    """Resolve plugin execution order via topological sort.
+
+    Returns a list of tiers, where each tier is a list of plugin names
+    that can execute in parallel.  Cross-tier execution is sequential.
+
+    If *plugin_names* is ``None``, all registered plugins are used.
+    Plugins not found in the registry are silently skipped.
+    """
+    names = list(plugin_names) if plugin_names is not None else PluginRegistry.list_names()
+
+    # Build adjacency from declared required + optional dependencies
+    # Only include edges whose source is also in the requested set
+    name_set = set(names)
+    deps: dict[str, set[str]] = {}
+    for name in names:
+        plugin_cls = PluginRegistry.get(name)
+        if plugin_cls is None:
+            continue
+        required = set(getattr(plugin_cls, "_dep_required", []))
+        optional = set(getattr(plugin_cls, "_dep_optional", []))
+        # Only keep dependencies that are in the requested set
+        deps[name] = (required | optional) & name_set
+
+    # Kahn's algorithm for topological sort into tiers
+    # in_degree[node] = count of deps that are also in the set
+    in_degree: dict[str, int] = {}
+    for node in deps:
+        in_degree[node] = sum(1 for d in deps[node] if d in deps)
+
+    tiers: list[list[str]] = []
+    remaining = set(deps.keys())
+
+    while remaining:
+        # Current tier: all nodes with in_degree 0
+        tier = sorted(n for n in remaining if in_degree[n] == 0)
+        if not tier:
+            # Cycle detected — break by adding all remaining
+            log.warning("dependency_cycle_detected", plugins=sorted(remaining))
+            tiers.append(sorted(remaining))
+            break
+        tiers.append(tier)
+        remaining -= set(tier)
+        # Reduce in-degree for nodes that depended on this tier
+        for node in remaining:
+            in_degree[node] = sum(1 for d in deps[node] if d in remaining)
+
+    return tiers
+
+
+def check_dependencies(
+    plugin_name: str,
+    completed: dict[str, PluginResult],
+) -> tuple[bool, str | None, bool]:
+    """Check whether a plugin's dependencies are satisfied.
+
+    Returns:
+        (can_execute, skip_reason, degraded)
+        - can_execute: True if the plugin should execute
+        - skip_reason: If can_execute is False, the reason string
+        - degraded: True if a required dependency failed (execute in degraded mode)
+    """
+    plugin_cls = PluginRegistry.get(plugin_name)
+    if plugin_cls is None:
+        # Plugin not in registry — no dependency metadata, allow execution
+        return True, None, False
+
+    required = getattr(plugin_cls, "_dep_required", [])
+    degraded = False
+
+    for dep in required:
+        if dep not in completed:
+            return False, f"Required dependency '{dep}' did not execute", False
+        dep_result = completed[dep]
+        if not dep_result.success and dep_result.findings == []:
+            degraded = True
+
+    return True, None, degraded
+
+
 class PipelineExecutor:
     """Ordered plugin execution with cross-plugin data flow."""
 
@@ -142,6 +227,7 @@ class PipelineExecutor:
         *,
         dry_run: bool = False,
         chain: bool = False,
+        auto_order: bool = False,
     ) -> dict[str, PluginResult]:
         """Execute plugins in order, optionally chaining findings.
 
@@ -150,6 +236,10 @@ class PipelineExecutor:
             plugin_order: Ordered list of plugin names to execute.
             dry_run: If True, plugins produce simulated results.
             chain: If True, upstream findings are injected into subsequent plugins.
+            auto_order: If True, reorder plugins using dependency graph
+                        (topological sort). *plugin_order* is treated as the
+                        set of plugins to run; execution order is determined
+                        by declared dependencies.
 
         Returns:
             Mapping of plugin name → PluginResult for all executed plugins.
@@ -168,6 +258,19 @@ class PipelineExecutor:
         if not plugin_order:
             return {}
 
+        # Optionally reorder by dependency graph
+        if auto_order:
+            tiers = resolve_execution_order(plugin_order)
+            ordered: list[str] = []
+            for tier in tiers:
+                ordered.extend(tier)
+            plugin_order = ordered
+            log.info(
+                "pipeline_auto_ordered",
+                tiers=[list(t) for t in tiers],
+                engagement_id=engagement.engagement_id,
+            )
+
         self._results.clear()
 
         log.info(
@@ -180,6 +283,31 @@ class PipelineExecutor:
 
         for plugin_name in plugin_order:
             extra_context: dict[str, Any] = {}
+
+            # Dependency check
+            can_exec, skip_reason, degraded = check_dependencies(plugin_name, self._results)
+            if not can_exec:
+                log.warning(
+                    "pipeline_dependency_skip",
+                    plugin_name=plugin_name,
+                    reason=skip_reason,
+                    engagement_id=engagement.engagement_id,
+                )
+                self._results[plugin_name] = PluginResult(
+                    plugin_name=plugin_name,
+                    success=False,
+                    findings=[],
+                    errors=[f"Skipped: {skip_reason}"],
+                    metadata={
+                        "error_type": "dependency_missing",
+                        "skip_reason": skip_reason,
+                    },
+                )
+                continue
+
+            if degraded:
+                extra_context["_degraded"] = True
+                extra_context["_degraded_reason"] = "One or more required dependencies failed"
 
             if chain and self._results:
                 extra_context["upstream_findings"] = [

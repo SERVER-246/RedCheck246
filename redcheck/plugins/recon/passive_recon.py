@@ -28,7 +28,7 @@ import dns.reversename
 import httpx
 
 from redcheck.plugins._http import scanning_ssl_context
-from redcheck.plugins.base_plugin import BasePlugin, PluginResult
+from redcheck.plugins.base_plugin import BasePlugin, PluginResult, plugin_dependencies
 from redcheck.plugins.recon.wordlists import COMMON_SUBDOMAINS
 
 # ---------------------------------------------------------------------------
@@ -323,6 +323,11 @@ async def email_harvest(host: str) -> list[dict[str, Any]]:
 # ---------------------------------------------------------------------------
 
 
+@plugin_dependencies(
+    required=[],
+    optional=[],
+    provides=["dns_data", "whois_data", "subdomains"],
+)
 class PassiveReconPlugin(BasePlugin):
     """Passive OSINT reconnaissance — DNS, WHOIS, cert-transparency & more."""
 
