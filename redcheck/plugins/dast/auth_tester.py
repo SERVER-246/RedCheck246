@@ -359,9 +359,10 @@ class AuthenticatedSessionTester(BasePlugin):
                     continue  # No session cookie to compare
 
                 # Step 2: POST with dummy credentials (intentionally wrong)
+                _probe = "redcheck_probe"  # nosec B105 — not a real password; deliberate dummy for session-fixation detection
                 resp_post = await client.post(
                     login_url,
-                    data={"username": "redcheck_probe", "password": "redcheck_probe"},
+                    data={"username": _probe, "password": _probe},
                     follow_redirects=False,
                 )
                 post_session = self._extract_session_ids(resp_post.headers)
