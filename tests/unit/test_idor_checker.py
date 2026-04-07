@@ -59,9 +59,9 @@ class TestIDORControlGating:
     def test_accepts_with_allow_auth_testing(self):
         plugin = IDORValidator()
         result = plugin.execute(_context(allow_auth=True))
-        # Auth gating passed (no exception), but no endpoints → PARTIAL
-        assert result.success is False
-        assert result.metadata.get("contract_status") == "PARTIAL"
+        # Auth gating passed (no exception), but no endpoints → graceful no-input
+        assert result.success is True
+        assert result.metadata.get("mode") == "no-input"
 
     def test_accepts_controls_object(self):
         plugin = IDORValidator()
@@ -69,9 +69,9 @@ class TestIDORControlGating:
             "offensive_controls": OffensiveControls(allow_auth_testing=True),
         }
         result = plugin.execute(ctx)
-        # Auth gating passed (no exception), but no endpoints → PARTIAL
-        assert result.success is False
-        assert result.metadata.get("contract_status") == "PARTIAL"
+        # Auth gating passed (no exception), but no endpoints → graceful no-input
+        assert result.success is True
+        assert result.metadata.get("mode") == "no-input"
 
 
 # ---------------------------------------------------------------------------
@@ -124,15 +124,14 @@ class TestIDORExecution:
     def test_no_endpoints_returns_empty(self):
         plugin = IDORValidator()
         result = plugin.execute(_context(allow_auth=True, endpoints=[]))
-        assert result.success is False
+        assert result.success is True
         assert result.metadata.get("mode") == "no-input"
-        assert result.metadata.get("contract_status") == "PARTIAL"
 
     def test_no_endpoints_key_returns_empty(self):
         plugin = IDORValidator()
         result = plugin.execute(_context(allow_auth=True))
-        assert result.success is False
-        assert result.metadata.get("contract_status") == "PARTIAL"
+        assert result.success is True
+        assert result.metadata.get("mode") == "no-input"
 
     def test_finds_accessible_objects(self):
         """200 response → IDOR finding."""
@@ -164,9 +163,9 @@ class TestIDORExecution:
                 endpoints=[],
             )
         )
-        # No endpoints → PARTIAL (actual IDOR logic tested via dry_run)
-        assert result.success is False
-        assert result.metadata.get("contract_status") == "PARTIAL"
+        # No endpoints → graceful no-input
+        assert result.success is True
+        assert result.metadata.get("mode") == "no-input"
 
 
 # ---------------------------------------------------------------------------

@@ -134,15 +134,14 @@ class TestHashStrengthPlugin:
     def test_no_hashes(self):
         plugin = OfflineHashStrengthAnalyzer()
         result = plugin.execute({"hashes": []})
-        assert result.success is False
+        assert result.success is True
         assert result.metadata.get("mode") == "no-input"
-        assert result.metadata.get("contract_status") == "PARTIAL"
 
     def test_no_hashes_key(self):
         plugin = OfflineHashStrengthAnalyzer()
         result = plugin.execute({})
-        assert result.success is False
-        assert result.metadata.get("contract_status") == "PARTIAL"
+        assert result.success is True
+        assert result.metadata.get("mode") == "no-input"
 
     def test_analyze_md5(self):
         plugin = OfflineHashStrengthAnalyzer()

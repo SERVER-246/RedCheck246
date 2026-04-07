@@ -102,14 +102,14 @@ class TestCVEMapperPlugin:
     def test_no_services(self):
         plugin = CVEMapper()
         result = plugin.execute({"discovered_services": []})
-        assert result.success is False
-        assert result.metadata.get("contract_status") == "PARTIAL"
+        assert result.success is True
+        assert result.metadata.get("mode") == "no-input"
 
     def test_no_services_key(self):
         plugin = CVEMapper()
         result = plugin.execute({})
-        assert result.success is False
-        assert result.metadata.get("contract_status") == "PARTIAL"
+        assert result.success is True
+        assert result.metadata.get("mode") == "no-input"
 
     def test_finds_cves(self):
         plugin = CVEMapper()

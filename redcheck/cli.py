@@ -679,7 +679,7 @@ def test_mode_cmd(
         ..., "--plugins", "-p", help="Comma-separated list of plugin names"
     ),
     dry_run: bool = typer.Option(False, "--dry-run", help="Simulate only"),
-    chain: bool = typer.Option(False, "--chain", help="Enable chain mode"),
+    chain: bool = typer.Option(True, "--chain/--no-chain", help="Enable chain mode (default: on)"),
 ) -> None:
     """Execute plugins in Test Mode with OTP gating."""
     import asyncio as _asyncio

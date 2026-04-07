@@ -298,7 +298,7 @@ class TestTestModeController:
         ctrl = TestModeController(orch, otp)
         eng = _make_engagement()
 
-        report = asyncio.run(ctrl.run_test_mode(eng, ["failing_plug"]))
+        report = asyncio.run(ctrl.run_test_mode(eng, ["failing_plug"], chain=False))
         assert "failing_plug" in report.plugins_skipped
 
     @patch("redcheck.core.test_mode.PluginRegistry")
@@ -315,7 +315,7 @@ class TestTestModeController:
         ctrl = TestModeController(orch, otp)
         eng = _make_engagement()
 
-        asyncio.run(ctrl.run_test_mode(eng, ["p1"], dry_run=True))
+        asyncio.run(ctrl.run_test_mode(eng, ["p1"], dry_run=True, chain=False))
         orch.arun_plugin.assert_called_once_with("p1", eng, dry_run=True)
 
     @patch("redcheck.core.test_mode.PluginRegistry")

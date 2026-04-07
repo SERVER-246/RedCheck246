@@ -226,7 +226,7 @@ class PipelineExecutor:
         plugin_order: list[str],
         *,
         dry_run: bool = False,
-        chain: bool = False,
+        chain: bool = True,
         auto_order: bool = False,
     ) -> dict[str, PluginResult]:
         """Execute plugins in order, optionally chaining findings.

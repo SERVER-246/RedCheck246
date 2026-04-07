@@ -59,7 +59,7 @@ class TestModeReport(BaseModel):
     otp_cancelled: int = 0
     start_time: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     end_time: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    chain_mode: bool = False
+    chain_mode: bool = True
 
     @property
     def duration_seconds(self) -> float:
@@ -90,7 +90,7 @@ class TestModeController:
         plugins: list[str],
         *,
         dry_run: bool = False,
-        chain: bool = False,
+        chain: bool = True,
     ) -> TestModeReport:
         """Execute plugins in Test Mode with OTP gating for DESTRUCTIVE plugins.
 

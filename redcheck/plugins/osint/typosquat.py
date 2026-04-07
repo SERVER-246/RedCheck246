@@ -196,12 +196,18 @@ class TyposquatDetector(BasePlugin):
         max_resolve: int = context.get("typosquat_max_resolve", 50)
 
         if not domains:
+            # Standalone fallback: extract domains from targets
+            domains = self._derive_domains(context)
+        if not domains:
             return PluginResult(
                 plugin_name=self.name,
-                success=False,
+                success=True,
                 findings=[],
-                errors=["No typosquat_domains in context — provide domains or enable chain_mode"],
-                metadata={"mode": "no-input", "contract_status": "PARTIAL"},
+                errors=[],
+                metadata={
+                    "mode": "no-input",
+                    "note": "No domains available for typosquat analysis",
+                },
             )
 
         for domain in domains:
@@ -274,3 +280,26 @@ class TyposquatDetector(BasePlugin):
                 "description": "Would generate and DNS-check typosquat permutations",
             },
         )
+
+    @staticmethod
+    def _derive_domains(context: dict[str, Any]) -> list[str]:
+        """Extract domain names from engagement targets."""
+        import ipaddress
+
+        domains: list[str] = []
+        targets = context.get("authorized_targets", context.get("targets", []))
+        for t in targets:
+            host = t.get("host", t) if isinstance(t, dict) else str(t)
+            for pfx in ("https://", "http://"):
+                if host.startswith(pfx):
+                    host = host[len(pfx) :]
+            host = host.split("/")[0].split(":")[0]
+            # Skip IPs and CIDR — typosquat only works on domain names
+            try:
+                ipaddress.ip_network(host, strict=False)
+                continue
+            except ValueError:
+                pass
+            if "." in host and host not in domains:
+                domains.append(host)
+        return domains

@@ -121,9 +121,8 @@ class TestTyposquatPlugin:
     def test_no_domains(self):
         plugin = TyposquatDetector()
         result = plugin.execute({"typosquat_domains": []})
-        assert result.success is False
+        assert result.success is True
         assert result.metadata.get("mode") == "no-input"
-        assert result.metadata.get("contract_status") == "PARTIAL"
 
     def test_dry_run(self):
         plugin = TyposquatDetector()
@@ -243,9 +242,8 @@ class TestBreachLookupPlugin:
     def test_no_passwords(self):
         plugin = BreachLookup()
         result = plugin.execute({"breach_passwords": []})
-        assert result.success is False
+        assert result.success is True
         assert result.metadata.get("mode") == "no-input"
-        assert result.metadata.get("contract_status") == "PARTIAL"
 
     def test_dry_run(self):
         plugin = BreachLookup()

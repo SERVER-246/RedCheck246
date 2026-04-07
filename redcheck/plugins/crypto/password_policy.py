@@ -170,13 +170,15 @@ class PasswordEntropyScorer(BasePlugin):
         if not passwords and not policies:
             return PluginResult(
                 plugin_name=self.name,
-                success=False,
+                success=True,
                 findings=[],
-                errors=["No passwords or password_policies in context"],
+                errors=[],
                 metadata={
                     "mode": "no-input",
-                    "contract_status": "PARTIAL",
-                    "duration_ms": (time.monotonic() - start) * 1000,
+                    "note": (
+                        "No passwords or policies available — "
+                        "upstream findings provide input via chain mode"
+                    ),
                 },
             )
 

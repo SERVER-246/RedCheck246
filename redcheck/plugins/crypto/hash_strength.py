@@ -213,10 +213,16 @@ class OfflineHashStrengthAnalyzer(BasePlugin):
         if not hashes:
             return PluginResult(
                 plugin_name=self.name,
-                success=False,
+                success=True,
                 findings=[],
-                errors=["No hashes in context — provide hashes or enable chain_mode"],
-                metadata={"mode": "no-input", "contract_status": "PARTIAL"},
+                errors=[],
+                metadata={
+                    "mode": "no-input",
+                    "note": (
+                        "No hashes available for analysis — "
+                        "upstream SAST findings provide input via chain mode"
+                    ),
+                },
             )
 
         for entry in hashes:

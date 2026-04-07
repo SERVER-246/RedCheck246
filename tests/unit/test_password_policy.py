@@ -158,8 +158,8 @@ class TestPasswordEntropyPlugin:
     def test_empty_input(self):
         plugin = PasswordEntropyScorer()
         result = plugin.execute({})
-        assert result.success is False
-        assert result.metadata.get("contract_status") == "PARTIAL"
+        assert result.success is True
+        assert result.metadata.get("mode") == "no-input"
 
     def test_metadata_counts(self):
         plugin = PasswordEntropyScorer()

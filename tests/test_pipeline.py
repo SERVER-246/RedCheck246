@@ -25,7 +25,7 @@ from redcheck.models import (
 )
 
 
-def _make_engagement(*, chain_mode: bool = False) -> EngagementContext:
+def _make_engagement(*, chain_mode: bool = True) -> EngagementContext:
     """Create a minimal valid EngagementContext for pipeline tests."""
     return EngagementContext(
         engagement_id="pipe-eng-1",
@@ -298,5 +298,5 @@ class TestPipelineExecutor:
         pipe = PipelineExecutor(orch)
         eng = _make_engagement()
 
-        asyncio.run(pipe.execute_pipeline(eng, ["a", "b"]))
+        asyncio.run(pipe.execute_pipeline(eng, ["a", "b"], chain=False))
         assert all(ctx is None for ctx in captured_extra)

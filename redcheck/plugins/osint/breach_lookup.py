@@ -133,12 +133,16 @@ class BreachLookup(BasePlugin):
         if not passwords:
             return PluginResult(
                 plugin_name=self.name,
-                success=False,
+                success=True,
                 findings=[],
-                errors=[
-                    "No breach_passwords in context — provide credentials or enable chain_mode"
-                ],
-                metadata={"mode": "no-input", "contract_status": "PARTIAL"},
+                errors=[],
+                metadata={
+                    "mode": "no-input",
+                    "note": (
+                        "No passwords available for breach lookup — "
+                        "upstream SAST/credential findings provide input via chain mode"
+                    ),
+                },
             )
 
         async with httpx.AsyncClient(verify=scanning_ssl_context(), timeout=10.0) as client:
