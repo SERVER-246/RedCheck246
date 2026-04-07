@@ -237,3 +237,206 @@ class TestAuthTesterDryRun:
         ctx = _context(targets=["https://example.com"])
         result = plugin.execute(ctx)
         assert result.plugin_name == "auth-session-tester"
+
+
+# ---------------------------------------------------------------------------
+# CSRF token detection
+# ---------------------------------------------------------------------------
+
+
+class TestCSRFDetection:
+    """Tests for _check_csrf — detects missing CSRF tokens on form pages."""
+
+    def _run_csrf_check(
+        self,
+        body: str,
+        *,
+        status: int = 200,
+        headers: list[tuple[str, str]] | None = None,
+    ) -> list[dict[str, Any]]:
+        headers = headers or []
+
+        async def run():
+            responses = {
+                ("GET", "/login"): httpx.Response(status, text=body, headers=headers),
+                ("GET", "/settings"): httpx.Response(404, text="Not found"),
+                ("GET", "/profile"): httpx.Response(404, text="Not found"),
+                ("GET", "/account"): httpx.Response(404, text="Not found"),
+                ("GET", "/"): httpx.Response(404, text="Not found"),
+            }
+            transport = _FakeTransport(responses)
+            async with httpx.AsyncClient(transport=transport) as client:
+                plugin = AuthenticatedSessionTester()
+                return await plugin._check_csrf("https://target.local", client)
+
+        return asyncio.run(run())
+
+    def test_no_form_no_finding(self):
+        findings = self._run_csrf_check("<html><body>No forms</body></html>")
+        assert len(findings) == 0
+
+    def test_form_without_csrf_token(self):
+        body = (
+            '<html><body><form action="/login" method="POST">'
+            '<input name="username"/></form></body></html>'
+        )
+        findings = self._run_csrf_check(body)
+        assert len(findings) == 1
+        assert findings[0]["finding_type"] == "csrf_missing"
+        assert findings[0]["severity"] == "high"
+
+    def test_form_with_csrf_hidden_input(self):
+        body = (
+            '<html><body><form action="/login" method="POST">'
+            '<input type="hidden" name="csrf" value="tok123"/>'
+            "</form></body></html>"
+        )
+        findings = self._run_csrf_check(body)
+        assert len(findings) == 0
+
+    def test_form_with_csrf_header(self):
+        body = '<html><body><form method="POST"><input name="q"/></form></body></html>'
+        findings = self._run_csrf_check(body, headers=[("X-CSRF-Token", "abc123")])
+        assert len(findings) == 0
+
+    def test_form_with_csrf_cookie(self):
+        body = '<html><body><form method="POST"><input name="q"/></form></body></html>'
+        findings = self._run_csrf_check(body, headers=[("set-cookie", "csrftoken=abc123; Path=/")])
+        assert len(findings) == 0
+
+    def test_404_page_ignored(self):
+        findings = self._run_csrf_check("<form></form>", status=404)
+        assert len(findings) == 0
+
+
+# ---------------------------------------------------------------------------
+# Session fixation
+# ---------------------------------------------------------------------------
+
+
+class TestSessionFixation:
+    """Tests for _check_session_fixation — detects non-rotating session IDs."""
+
+    def _run_fixation_check(
+        self,
+        *,
+        get_cookies: list[str],
+        post_cookies: list[str],
+        get_status: int = 200,
+        post_status: int = 200,
+    ) -> list[dict[str, Any]]:
+        async def run():
+            responses = {
+                ("GET", "/login"): httpx.Response(
+                    get_status,
+                    text="Login",
+                    headers=[("set-cookie", c) for c in get_cookies],
+                ),
+                ("POST", "/login"): httpx.Response(
+                    post_status,
+                    text="OK",
+                    headers=[("set-cookie", c) for c in post_cookies],
+                ),
+                ("GET", "/signin"): httpx.Response(404, text="Not found"),
+                ("GET", "/api/auth/login"): httpx.Response(404, text="Not found"),
+            }
+            transport = _FakeTransport(responses)
+            async with httpx.AsyncClient(transport=transport) as client:
+                plugin = AuthenticatedSessionTester()
+                return await plugin._check_session_fixation("https://target.local", client)
+
+        return asyncio.run(run())
+
+    def test_session_rotated_no_finding(self):
+        findings = self._run_fixation_check(
+            get_cookies=["session=aaa111; Path=/"],
+            post_cookies=["session=bbb222; Path=/"],
+        )
+        assert len(findings) == 0
+
+    def test_session_not_rotated(self):
+        findings = self._run_fixation_check(
+            get_cookies=["session=aaa111; Path=/"],
+            post_cookies=["session=aaa111; Path=/"],
+        )
+        assert len(findings) == 1
+        assert findings[0]["finding_type"] == "session_fixation"
+        assert findings[0]["severity"] == "high"
+
+    def test_no_session_cookie_skipped(self):
+        findings = self._run_fixation_check(
+            get_cookies=["theme=dark; Path=/"],
+            post_cookies=["theme=dark; Path=/"],
+        )
+        assert len(findings) == 0
+
+    def test_login_404_skipped(self):
+        findings = self._run_fixation_check(
+            get_cookies=["session=aaa; Path=/"],
+            post_cookies=["session=aaa; Path=/"],
+            get_status=404,
+        )
+        assert len(findings) == 0
+
+
+# ---------------------------------------------------------------------------
+# Cookie scope analysis
+# ---------------------------------------------------------------------------
+
+
+class TestCookieScopeAnalysis:
+    """Tests for _analyze_cookie_scope — Domain, Path, Expires, SameSite."""
+
+    def _run_scope_analysis(
+        self,
+        cookies: list[str],
+    ) -> list[dict[str, Any]]:
+        async def run():
+            responses = {
+                ("GET", "/"): httpx.Response(
+                    200,
+                    text="<html></html>",
+                    headers=[("set-cookie", c) for c in cookies],
+                ),
+            }
+            transport = _FakeTransport(responses)
+            async with httpx.AsyncClient(transport=transport) as client:
+                plugin = AuthenticatedSessionTester()
+                return await plugin._analyze_cookie_scope("https://app.example.com", client)
+
+        return asyncio.run(run())
+
+    def test_overly_broad_domain(self):
+        findings = self._run_scope_analysis(
+            ["session=abc; Domain=.example.com; Path=/app; Secure; HttpOnly"]
+        )
+        assert any("Overly broad Domain" in f["detail"] for f in findings)
+
+    def test_root_path(self):
+        findings = self._run_scope_analysis(
+            ["session=abc; Path=/; Expires=Thu, 01 Dec 2026 00:00:00 GMT"]
+        )
+        assert any("Path=/" in f["detail"] for f in findings)
+
+    def test_no_expiry(self):
+        findings = self._run_scope_analysis(["session=abc; Path=/app; Secure"])
+        assert any("No Expires/Max-Age" in f["detail"] for f in findings)
+
+    def test_samesite_none_without_secure(self):
+        findings = self._run_scope_analysis(["session=abc; SameSite=None; Path=/app; Max-Age=3600"])
+        assert any("SameSite=None without Secure" in f["detail"] for f in findings)
+
+    def test_well_scoped_cookie_no_finding(self):
+        findings = self._run_scope_analysis(
+            [
+                "session=abc; Domain=app.example.com; Path=/app; "
+                "Secure; HttpOnly; SameSite=Strict; Max-Age=3600"
+            ]
+        )
+        # Only Path=/ or overly broad domain trigger — this should be clean
+        # Domain matches target exactly, Path is /app, has Max-Age
+        assert not any(f["finding_type"] == "cookie_scope_issue" for f in findings)
+
+    def test_no_cookies_no_findings(self):
+        findings = self._run_scope_analysis([])
+        assert len(findings) == 0

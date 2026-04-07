@@ -2,13 +2,22 @@
 
 Tests web application authentication mechanisms under RoE constraints.
 Gated by ``allow_auth_testing`` offensive control.
+
+Phase C additions (commit aa47715+):
+- CSRF token detection — checks forms for hidden CSRF tokens and validates
+  anti-CSRF header enforcement.
+- Session fixation checks — detects whether session ID rotates after login.
+- Cookie scope analysis — validates Domain, Path, Expires/Max-Age, and
+  SameSite settings on session cookies.
 """
 
 from __future__ import annotations
 
 import asyncio
+import re
 import time
 from typing import Any
+from urllib.parse import urlparse
 
 import httpx
 import structlog
@@ -48,7 +57,7 @@ class AuthenticatedSessionTester(BasePlugin):
     required_controls = ["allow_auth_testing"]
     timeout_seconds = 120
     rate_limit_rps = 5
-    mitre_techniques = ["T1078", "T1110.001"]
+    mitre_techniques = ["T1078", "T1110.001", "T1185", "T1539"]
     requires_isolation = False
 
     # Known-weak credentials for detection (never actual brute-force)
@@ -121,6 +130,18 @@ class AuthenticatedSessionTester(BasePlugin):
                     # 2. Weak credential detection
                     cred_findings = await self._check_weak_credentials(url, client)
                     findings.extend(cred_findings)
+
+                    # 3. CSRF token detection
+                    csrf_findings = await self._check_csrf(url, client)
+                    findings.extend(csrf_findings)
+
+                    # 4. Session fixation check
+                    fixation_findings = await self._check_session_fixation(url, client)
+                    findings.extend(fixation_findings)
+
+                    # 5. Cookie scope analysis
+                    scope_findings = await self._analyze_cookie_scope(url, client)
+                    findings.extend(scope_findings)
 
                 except Exception as exc:
                     errors.append(f"{url}: {exc}")
@@ -227,6 +248,208 @@ class AuthenticatedSessionTester(BasePlugin):
                         continue
             except Exception:  # noqa: S112
                 continue
+
+        return findings
+
+    # ------------------------------------------------------------------
+    # 3. CSRF token detection
+    # ------------------------------------------------------------------
+
+    _CSRF_HEADER_NAMES = frozenset({"x-csrf-token", "x-xsrf-token", "x-csrftoken", "csrf-token"})
+    _CSRF_INPUT_RE = re.compile(
+        r'<input[^>]+name=["\']?'
+        r"(csrf|_csrf|csrfmiddlewaretoken|__RequestVerificationToken"
+        r"|_token|authenticity_token|xsrf)"
+        r'["\']?[^>]*/?>',
+        re.IGNORECASE,
+    )
+
+    async def _check_csrf(
+        self,
+        url: str,
+        client: httpx.AsyncClient,
+    ) -> list[dict[str, Any]]:
+        """Detect missing CSRF protections on form pages."""
+        findings: list[dict[str, Any]] = []
+        form_paths = ["/login", "/settings", "/profile", "/account", "/"]
+
+        for path in form_paths:
+            page_url = f"{url.rstrip('/')}{path}"
+            try:
+                resp = await client.get(page_url, follow_redirects=True)
+                if resp.status_code >= 400:
+                    continue
+
+                body = resp.text
+                has_form = "<form" in body.lower()
+                if not has_form:
+                    continue
+
+                has_csrf_input = bool(self._CSRF_INPUT_RE.search(body))
+                has_csrf_header = bool(self._CSRF_HEADER_NAMES & {k.lower() for k in resp.headers})
+                has_csrf_cookie = any(
+                    "csrf" in c.lower() or "xsrf" in c.lower()
+                    for c in resp.headers.get_list("set-cookie")
+                )
+
+                if not (has_csrf_input or has_csrf_header or has_csrf_cookie):
+                    findings.append(
+                        {
+                            "finding_type": "csrf_missing",
+                            "target": page_url,
+                            "severity": "high",
+                            "detail": (
+                                f"Form at {path} has no CSRF token — "
+                                "no hidden input, no CSRF header, no CSRF cookie"
+                            ),
+                            "mitre_technique": "T1185",
+                        }
+                    )
+            except Exception:  # noqa: S112
+                continue
+
+        return findings
+
+    # ------------------------------------------------------------------
+    # 4. Session fixation check
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _extract_session_ids(headers: httpx.Headers) -> set[str]:
+        """Extract session-like cookie values from Set-Cookie headers."""
+        session_patterns = re.compile(
+            r"(session|sess|sid|jsessionid|phpsessid|asp\.net_sessionid)",
+            re.IGNORECASE,
+        )
+        ids: set[str] = set()
+        for cookie_str in headers.get_list("set-cookie"):
+            name_val = cookie_str.split(";")[0]
+            if "=" not in name_val:
+                continue
+            name, _, value = name_val.partition("=")
+            if session_patterns.search(name.strip()):
+                ids.add(value.strip())
+        return ids
+
+    async def _check_session_fixation(
+        self,
+        url: str,
+        client: httpx.AsyncClient,
+    ) -> list[dict[str, Any]]:
+        """Check if session ID is rotated after login.
+
+        Strategy: GET the login page (capture session cookies), then POST
+        dummy credentials and compare session cookies. If the session ID is
+        unchanged after a POST to the login endpoint, session fixation may
+        be possible.
+        """
+        findings: list[dict[str, Any]] = []
+        login_paths = ["/login", "/signin", "/api/auth/login"]
+
+        for path in login_paths:
+            login_url = f"{url.rstrip('/')}{path}"
+            try:
+                # Step 1: GET login page → capture session cookie
+                resp_get = await client.get(login_url, follow_redirects=False)
+                if resp_get.status_code >= 400:
+                    continue
+
+                pre_session = self._extract_session_ids(resp_get.headers)
+                if not pre_session:
+                    continue  # No session cookie to compare
+
+                # Step 2: POST with dummy credentials (intentionally wrong)
+                resp_post = await client.post(
+                    login_url,
+                    data={"username": "redcheck_probe", "password": "redcheck_probe"},
+                    follow_redirects=False,
+                )
+                post_session = self._extract_session_ids(resp_post.headers)
+
+                # If server sent back a new Set-Cookie for the session, check if same
+                if post_session and pre_session == post_session:
+                    findings.append(
+                        {
+                            "finding_type": "session_fixation",
+                            "target": login_url,
+                            "severity": "high",
+                            "detail": (
+                                "Session ID not rotated after login attempt — "
+                                "potential session fixation vulnerability"
+                            ),
+                            "mitre_technique": "T1539",
+                        }
+                    )
+            except Exception:  # noqa: S112
+                continue
+
+        return findings
+
+    # ------------------------------------------------------------------
+    # 5. Cookie scope analysis
+    # ------------------------------------------------------------------
+
+    async def _analyze_cookie_scope(
+        self,
+        url: str,
+        client: httpx.AsyncClient,
+    ) -> list[dict[str, Any]]:
+        """Analyze cookie Domain, Path, Expires/Max-Age scope."""
+        findings: list[dict[str, Any]] = []
+        parsed = urlparse(url)
+        target_domain = parsed.hostname or ""
+
+        try:
+            resp = await client.get(url, follow_redirects=True)
+        except Exception:
+            return findings
+
+        for cookie_str in resp.headers.get_list("set-cookie"):
+            name_val = cookie_str.split(";")[0]
+            if "=" not in name_val:
+                continue
+            cookie_name = name_val.split("=")[0].strip()
+            lower = cookie_str.lower()
+            attrs = {
+                p.strip().split("=")[0].strip(): (
+                    p.strip().split("=", 1)[1].strip() if "=" in p else ""
+                )
+                for p in cookie_str.split(";")[1:]
+            }
+            issues: list[str] = []
+
+            # Domain scope: overly broad domain (e.g. .example.com for app.example.com)
+            domain_attr = attrs.get("domain", attrs.get("Domain", "")).strip()
+            if domain_attr:
+                clean_domain = domain_attr.lstrip(".")
+                if clean_domain != target_domain and target_domain.endswith(f".{clean_domain}"):
+                    issues.append(f"Overly broad Domain={domain_attr} (target is {target_domain})")
+
+            # Path scope: root path means every endpoint gets the cookie
+            path_attr = attrs.get("path", attrs.get("Path", "")).strip()
+            if path_attr == "/" or not path_attr:
+                issues.append("Cookie Path=/ (sent to every endpoint)")
+
+            # Missing Expires/Max-Age = session cookie (dies on browser close)
+            has_expiry = "expires" in lower or "max-age" in lower
+            if not has_expiry:
+                issues.append("No Expires/Max-Age — session-only cookie")
+
+            # SameSite=None without Secure is browser-rejected but still a finding
+            if "samesite=none" in lower and "secure" not in lower:
+                issues.append("SameSite=None without Secure flag")
+
+            if issues:
+                findings.append(
+                    {
+                        "finding_type": "cookie_scope_issue",
+                        "target": url,
+                        "severity": "medium",
+                        "cookie": cookie_name,
+                        "detail": f"Cookie '{cookie_name}': {'; '.join(issues)}",
+                        "issues": issues,
+                    }
+                )
 
         return findings
 
