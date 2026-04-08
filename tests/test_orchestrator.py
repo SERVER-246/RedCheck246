@@ -410,3 +410,40 @@ class TestAsyncEnforcement:
         )
         result = await orch.arun_plugin("active-test", ctx)
         assert result.success is True
+
+
+# ---------------------------------------------------------------------------
+# Phase E — Mode separation stamping
+# ---------------------------------------------------------------------------
+
+
+class TestModeSeparationSync:
+    """Sync run_plugin stamps execution_mode correctly."""
+
+    def test_real_mode_set_when_no_override(self, valid_roe_file):
+        orch = Orchestrator()
+        orch.load_engagement(valid_roe_file)
+        result = orch.run_plugin("stub-test")
+        assert result.metadata.get("execution_mode") == "real"
+
+
+class TestModeSeparationAsync:
+    """Async arun_plugin stamps execution_mode and simulation metadata."""
+
+    @pytest.mark.asyncio
+    async def test_test_mode_stamps_simulation(self):
+        orch = Orchestrator()
+        ctx = _make_engagement(runtime_mode=RuntimeMode.TEST)
+        result = await orch.arun_plugin("async-stub", ctx)
+        assert result.metadata.get("execution_mode") == "simulated"
+
+    @pytest.mark.asyncio
+    async def test_real_mode_set_for_production(self):
+        orch = Orchestrator()
+        oc = OffensiveControls(allow_auth_testing=True)
+        ctx = _make_engagement(
+            offensive_controls=oc,
+            runtime_mode=RuntimeMode.PRODUCTION,
+        )
+        result = await orch.arun_plugin("active-test", ctx)
+        assert result.metadata.get("execution_mode") == "real"

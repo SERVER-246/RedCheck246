@@ -22,6 +22,7 @@ from redcheck.core.contract_validator import validate_contract
 from redcheck.core.enrichment import enrich_plugin_result
 from redcheck.core.evidence_store import EvidenceStore
 from redcheck.core.fake_metric_detector import detect_fake_metrics
+from redcheck.core.mode_separator import stamp_simulation_metadata
 from redcheck.core.policy_engine import get_policy_engine
 from redcheck.exceptions import (
     ActivationError,
@@ -282,6 +283,8 @@ class Orchestrator:
         # Mode separation (C6)
         if dry_run:
             result.metadata["execution_mode"] = "dry_run"
+        elif self._current_engagement and self._current_engagement.runtime_mode == RuntimeMode.TEST:
+            stamp_simulation_metadata(result)
         elif not result.metadata.get("execution_mode"):
             result.metadata["execution_mode"] = "real"
 
@@ -479,6 +482,8 @@ class Orchestrator:
         # Mode separation (C6)
         if dry_run:
             result.metadata["execution_mode"] = "dry_run"
+        elif engagement.runtime_mode == RuntimeMode.TEST:
+            stamp_simulation_metadata(result)
         elif not result.metadata.get("execution_mode"):
             result.metadata["execution_mode"] = "real"
 

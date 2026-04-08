@@ -163,6 +163,99 @@ class TestJSONReportGenerator:
 
 
 # ═══════════════════════════════════════════════════════════════════
+# Mode Segregation (Phase E)
+# ═══════════════════════════════════════════════════════════════════
+
+
+class TestModeSegregation:
+    """Verify generate() splits findings into real / simulated / dry_run."""
+
+    @staticmethod
+    def _finding_with_mode(mode: str | None = None, sev: str = "high") -> Finding:
+        meta = {}
+        if mode is not None:
+            meta["execution_mode"] = mode
+        return Finding(
+            finding_type="test",
+            target="10.0.0.1",
+            severity=sev,
+            detail="test detail",
+            metadata=meta,
+        )
+
+    def test_all_real_findings(self) -> None:
+        from redcheck.core.reporting import JSONReportGenerator
+
+        sr = _make_scan_report(findings_count=2)
+        gen = JSONReportGenerator()
+        report = gen.generate(sr)
+
+        assert report["summary"]["real_findings"] == 2
+        assert report["summary"]["simulated_findings"] == 0
+        assert report["summary"]["dry_run_findings"] == 0
+        assert len(report["findings"]) == 2
+        assert report["simulated_results"] == []
+        assert report["dry_run_plans"] == []
+
+    def test_mixed_mode_findings(self) -> None:
+        from redcheck.core.reporting import JSONReportGenerator
+
+        real_f = self._finding_with_mode("real", sev="critical")
+        sim_f = self._finding_with_mode("simulated", sev="high")
+        dry_f = self._finding_with_mode("dry_run", sev="medium")
+
+        sr = ScanReport(
+            engagement_id="eng-mix",
+            scanner="test",
+            start_time=datetime.now(timezone.utc),
+            end_time=datetime.now(timezone.utc),
+            findings=[real_f, sim_f, dry_f],
+        )
+        gen = JSONReportGenerator()
+        report = gen.generate(sr)
+
+        assert report["summary"]["total_findings"] == 3
+        assert report["summary"]["real_findings"] == 1
+        assert report["summary"]["simulated_findings"] == 1
+        assert report["summary"]["dry_run_findings"] == 1
+        assert len(report["findings"]) == 1
+        assert len(report["simulated_results"]) == 1
+        assert len(report["dry_run_plans"]) == 1
+
+    def test_severity_counts_only_real(self) -> None:
+        """Executive summary severity_counts must exclude simulated findings."""
+        from redcheck.core.reporting import JSONReportGenerator
+
+        real_crit = self._finding_with_mode("real", sev="critical")
+        sim_crit = self._finding_with_mode("simulated", sev="critical")
+
+        sr = ScanReport(
+            engagement_id="eng-sev",
+            scanner="test",
+            start_time=datetime.now(timezone.utc),
+            end_time=datetime.now(timezone.utc),
+            findings=[real_crit, sim_crit],
+        )
+        gen = JSONReportGenerator()
+        report = gen.generate(sr)
+
+        # Only the real critical should be counted
+        assert report["summary"]["severity_counts"].get("critical") == 1
+
+    def test_mode_breakdown_in_summary(self) -> None:
+        from redcheck.core.reporting import JSONReportGenerator
+
+        sr = _make_scan_report(findings_count=2)
+        gen = JSONReportGenerator()
+        report = gen.generate(sr)
+
+        mb = report["summary"]["mode_breakdown"]
+        assert mb["real"] == 2
+        assert mb["simulated"] == 0
+        assert mb["dry_run"] == 0
+
+
+# ═══════════════════════════════════════════════════════════════════
 # Ed25519 Signing
 # ═══════════════════════════════════════════════════════════════════
 

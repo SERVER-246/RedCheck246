@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+from unittest.mock import patch
+
 from redcheck.core.attack_chain_scorer import (
+    _DEFAULT_EXPLOITABILITY,
+    _DEFAULT_IMPACT,
     CORRELATION_RULES,
     AttackChainScorer,
     ChainRiskScore,
@@ -441,3 +445,420 @@ class TestScoreSummary:
         summary = scorer.score_summary(results)
         total = sum(summary["ratings_breakdown"].values())
         assert total == summary["chain_count"]
+
+
+# ---------------------------------------------------------------------------
+# _score_path — direct unit tests
+# ---------------------------------------------------------------------------
+
+_FAKE_PATH = {
+    "nodes": ["asset:10.0.0.1:80", "vuln:xss_reflected"],
+    "edges": [
+        {
+            "source": "asset:10.0.0.1:80",
+            "target": "vuln:xss_reflected",
+            "probability": 0.6,
+            "edge_type": "exploit_public",
+            "mitre_technique": "T1059.007",
+            "description": "xss_reflected on target",
+        },
+    ],
+    "aggregate_probability": 0.0,
+}
+
+
+class TestScorePath:
+    def test_basic_path_scoring(self):
+        scorer = AttackChainScorer()
+        chain = scorer._score_path(_FAKE_PATH, 1, [])
+        assert isinstance(chain, ScoredAttackChain)
+        assert chain.path_id == "AC-001"
+        assert chain.entry_point == "asset:10.0.0.1:80"
+        assert chain.final_target == "vuln:xss_reflected"
+        assert len(chain.steps) == 1
+        assert chain.scoring.risk_score >= 0
+        assert chain.scoring.risk_score <= 10.0
+        assert chain.scoring.path_length == 1
+
+    def test_path_with_precomputed_aggregate(self):
+        """When aggregate_probability > 0, it is used directly."""
+        path = {
+            "nodes": ["a", "b"],
+            "edges": [
+                {
+                    "source": "a",
+                    "target": "b",
+                    "probability": 0.5,
+                    "edge_type": "misconfig",
+                    "mitre_technique": "T1557",
+                    "description": "misconfiguration",
+                },
+            ],
+            "aggregate_probability": 0.25,
+        }
+        scorer = AttackChainScorer()
+        chain = scorer._score_path(path, 1, [])
+        assert chain.scoring.composite_likelihood == 0.25
+
+    def test_path_with_zero_aggregate(self):
+        """When aggregate_probability == 0, product of edge probabilities is used."""
+        path = {
+            "nodes": ["a", "b", "c"],
+            "edges": [
+                {
+                    "source": "a",
+                    "target": "b",
+                    "probability": 0.5,
+                    "edge_type": "misconfig",
+                    "mitre_technique": "",
+                    "description": "",
+                },
+                {
+                    "source": "b",
+                    "target": "c",
+                    "probability": 0.4,
+                    "edge_type": "idor",
+                    "mitre_technique": "",
+                    "description": "",
+                },
+            ],
+            "aggregate_probability": 0.0,
+        }
+        scorer = AttackChainScorer()
+        chain = scorer._score_path(path, 1, [])
+        # 1.0 * 0.5 * 0.4 = 0.2
+        assert abs(chain.scoring.composite_likelihood - 0.2) < 1e-9
+
+    def test_weakest_strongest_links(self):
+        path = {
+            "nodes": ["a", "b", "c"],
+            "edges": [
+                {
+                    "source": "a",
+                    "target": "b",
+                    "probability": 0.3,
+                    "edge_type": "misconfig",
+                    "description": "",
+                },
+                {
+                    "source": "b",
+                    "target": "c",
+                    "probability": 0.9,
+                    "edge_type": "idor",
+                    "description": "",
+                },
+            ],
+            "aggregate_probability": 0.0,
+        }
+        scorer = AttackChainScorer()
+        chain = scorer._score_path(path, 1, [])
+        assert chain.scoring.weakest_link == 0.3
+        assert chain.scoring.strongest_link == 0.9
+
+    def test_empty_edges(self):
+        path = {"nodes": [], "edges": [], "aggregate_probability": 0.0}
+        scorer = AttackChainScorer()
+        chain = scorer._score_path(path, 1, [])
+        assert chain.scoring.path_length == 0
+        assert chain.entry_point == "unknown"
+        assert chain.final_target == "unknown"
+        assert chain.scoring.weakest_link == 0.0
+        assert chain.scoring.strongest_link == 0.0
+
+    def test_no_nodes_fallback_to_edges(self):
+        path = {
+            "nodes": [],
+            "edges": [
+                {
+                    "source": "src",
+                    "target": "dst",
+                    "probability": 0.5,
+                    "edge_type": "lateral",
+                    "description": "",
+                },
+            ],
+            "aggregate_probability": 0.0,
+        }
+        scorer = AttackChainScorer()
+        chain = scorer._score_path(path, 1, [])
+        assert chain.entry_point == "src"
+        assert chain.final_target == "dst"
+
+    def test_dedup_mitre_techniques(self):
+        path = {
+            "nodes": ["a", "b", "c"],
+            "edges": [
+                {
+                    "source": "a",
+                    "target": "b",
+                    "probability": 0.5,
+                    "edge_type": "exploit_public",
+                    "mitre_technique": "T1190",
+                    "description": "",
+                },
+                {
+                    "source": "b",
+                    "target": "c",
+                    "probability": 0.5,
+                    "edge_type": "exploit_public",
+                    "mitre_technique": "T1190",
+                    "description": "",
+                },
+            ],
+            "aggregate_probability": 0.0,
+        }
+        scorer = AttackChainScorer()
+        chain = scorer._score_path(path, 1, [])
+        # Duplicate technique should appear only once
+        assert chain.mitre_techniques == ["T1190"]
+
+    def test_risk_score_clamped_to_10(self):
+        """Extreme values should still clamp to 10."""
+        path = {
+            "nodes": ["a", "b"],
+            "edges": [
+                {
+                    "source": "a",
+                    "target": "b",
+                    "probability": 1.0,
+                    "edge_type": "exploit_public",
+                    "mitre_technique": "",
+                    "description": "sqli_timing — direct injection",
+                },
+            ],
+            "aggregate_probability": 0.0,
+        }
+        scorer = AttackChainScorer()
+        chain = scorer._score_path(path, 1, [])
+        assert chain.scoring.risk_score <= 10.0
+
+    def test_correlation_rules_passed_through(self):
+        scorer = AttackChainScorer()
+        chain = scorer._score_path(_FAKE_PATH, 1, ["rule-a", "rule-b"])
+        assert chain.correlation_rules_matched == ["rule-a", "rule-b"]
+
+    def test_detection_coverage_reduces_score(self):
+        """With detection coverage, risk_score should decrease."""
+        path = {
+            "nodes": ["a", "b"],
+            "edges": [
+                {
+                    "source": "a",
+                    "target": "b",
+                    "probability": 0.8,
+                    "edge_type": "exploit_public",
+                    "mitre_technique": "T1190",
+                    "description": "sqli_timing",
+                },
+            ],
+            "aggregate_probability": 0.0,
+        }
+        scorer_no_det = AttackChainScorer(detection_coverage={})
+        scorer_det = AttackChainScorer(detection_coverage={"T1190": 0.9})
+        chain_no = scorer_no_det._score_path(path, 1, [])
+        chain_det = scorer_det._score_path(path, 1, [])
+        assert chain_det.scoring.risk_score < chain_no.scoring.risk_score
+
+
+# ---------------------------------------------------------------------------
+# _compute_impact — direct unit tests
+# ---------------------------------------------------------------------------
+
+
+class TestComputeImpact:
+    def _scorer(self) -> AttackChainScorer:
+        return AttackChainScorer()
+
+    def test_empty_edges_returns_default(self):
+        assert self._scorer()._compute_impact([]) == _DEFAULT_IMPACT
+
+    def test_known_finding_in_description(self):
+        edges = [{"description": "found sqli_timing issue", "edge_type": "exploit_public"}]
+        assert self._scorer()._compute_impact(edges) == 9.0
+
+    def test_xss_reflected_in_description(self):
+        edges = [{"description": "xss_reflected on target", "edge_type": "exploit_public"}]
+        assert self._scorer()._compute_impact(edges) == 7.0
+
+    def test_supply_chain_in_description(self):
+        edges = [{"description": "supply_chain_vulnerability CVE-2024-1234", "edge_type": ""}]
+        assert self._scorer()._compute_impact(edges) == 8.0
+
+    def test_exploit_public_fallback(self):
+        edges = [{"description": "unknown thing", "edge_type": "exploit_public"}]
+        assert self._scorer()._compute_impact(edges) == 8.0
+
+    def test_authz_bypass_fallback(self):
+        edges = [{"description": "unknown thing", "edge_type": "authz_bypass"}]
+        assert self._scorer()._compute_impact(edges) == 8.0
+
+    def test_idor_fallback(self):
+        edges = [{"description": "unknown thing", "edge_type": "idor"}]
+        assert self._scorer()._compute_impact(edges) == 7.0
+
+    def test_token_reuse_fallback(self):
+        edges = [{"description": "unknown thing", "edge_type": "token_reuse"}]
+        assert self._scorer()._compute_impact(edges) == 7.0
+
+    def test_misconfig_fallback(self):
+        edges = [{"description": "unknown thing", "edge_type": "misconfig"}]
+        assert self._scorer()._compute_impact(edges) == 5.5
+
+    def test_completely_unknown_returns_default(self):
+        edges = [{"description": "no match", "edge_type": "lateral"}]
+        assert self._scorer()._compute_impact(edges) == _DEFAULT_IMPACT
+
+    def test_multiple_edges_uses_last(self):
+        """Impact is derived from the *last* edge only."""
+        edges = [
+            {"description": "sqli_timing", "edge_type": "exploit_public"},
+            {"description": "no match", "edge_type": "misconfig"},
+        ]
+        assert self._scorer()._compute_impact(edges) == 5.5
+
+
+# ---------------------------------------------------------------------------
+# _compute_exploitability — direct unit tests
+# ---------------------------------------------------------------------------
+
+
+class TestComputeExploitability:
+    def _scorer(self) -> AttackChainScorer:
+        return AttackChainScorer()
+
+    def test_empty_returns_default(self):
+        assert self._scorer()._compute_exploitability([]) == _DEFAULT_EXPLOITABILITY
+
+    def test_single_known_type(self):
+        assert self._scorer()._compute_exploitability(["exploit_public"]) == 8.0
+
+    def test_average_of_types(self):
+        # exploit_public=8.0, misconfig=7.0 → average=7.5
+        result = self._scorer()._compute_exploitability(["exploit_public", "misconfig"])
+        assert abs(result - 7.5) < 1e-9
+
+    def test_unknown_type_uses_default(self):
+        result = self._scorer()._compute_exploitability(["totally_unknown"])
+        assert result == _DEFAULT_EXPLOITABILITY
+
+
+# ---------------------------------------------------------------------------
+# _compute_detection_probability — direct unit tests
+# ---------------------------------------------------------------------------
+
+
+class TestComputeDetectionProbability:
+    def test_no_techniques(self):
+        scorer = AttackChainScorer(detection_coverage={"T1190": 0.8})
+        assert scorer._compute_detection_probability([]) == 0.0
+
+    def test_no_coverage_data(self):
+        scorer = AttackChainScorer(detection_coverage={})
+        assert scorer._compute_detection_probability(["T1190"]) == 0.0
+
+    def test_single_technique(self):
+        scorer = AttackChainScorer(detection_coverage={"T1190": 0.7})
+        assert abs(scorer._compute_detection_probability(["T1190"]) - 0.7) < 1e-9
+
+    def test_average(self):
+        scorer = AttackChainScorer(detection_coverage={"T1190": 0.8, "T1557": 0.4})
+        result = scorer._compute_detection_probability(["T1190", "T1557"])
+        assert abs(result - 0.6) < 1e-9
+
+    def test_missing_technique_defaults_to_zero(self):
+        scorer = AttackChainScorer(detection_coverage={"T1190": 0.8})
+        result = scorer._compute_detection_probability(["T1190", "T9999"])
+        assert abs(result - 0.4) < 1e-9
+
+
+# ---------------------------------------------------------------------------
+# score() / score_summary() with mocked correlator paths
+# ---------------------------------------------------------------------------
+
+
+class TestScoreWithPaths:
+    """Use a mock correlator to inject ranked_paths so score/score_summary
+    exercise the ranking, re-numbering, and summary aggregation code."""
+
+    _FAKE_CORRELATION = {
+        "ranked_paths": [
+            {
+                "nodes": ["a", "b"],
+                "edges": [
+                    {
+                        "source": "a",
+                        "target": "b",
+                        "probability": 0.6,
+                        "edge_type": "misconfig",
+                        "mitre_technique": "T1557",
+                        "description": "dast_weak_tls",
+                    },
+                ],
+                "aggregate_probability": 0.6,
+            },
+            {
+                "nodes": ["c", "d"],
+                "edges": [
+                    {
+                        "source": "c",
+                        "target": "d",
+                        "probability": 0.9,
+                        "edge_type": "exploit_public",
+                        "mitre_technique": "T1190",
+                        "description": "sqli_timing",
+                    },
+                ],
+                "aggregate_probability": 0.9,
+            },
+        ],
+    }
+
+    def _results(self) -> dict[str, PluginResult]:
+        return {
+            "scanner": _result(
+                "scanner",
+                [_finding("open_port", metadata={"port": 80})],
+            ),
+        }
+
+    def _mock_correlate(self, _self):
+        # _self is AttackPathCorrelator instance; ignore it
+        return self._FAKE_CORRELATION
+
+    @patch(
+        "redcheck.core.attack_chain_scorer.AttackPathCorrelator.correlate",
+        autospec=True,
+    )
+    @patch(
+        "redcheck.core.attack_chain_scorer.AttackPathCorrelator.ingest_findings",
+        autospec=True,
+    )
+    def test_score_returns_sorted_chains(self, mock_ingest, mock_correlate):
+        mock_correlate.side_effect = self._mock_correlate
+        scorer = AttackChainScorer()
+        chains = scorer.score(self._results())
+        assert len(chains) == 2
+        # Should be sorted descending by risk_score
+        assert chains[0].scoring.risk_score >= chains[1].scoring.risk_score
+        # Re-ranked after sort
+        assert chains[0].path_id == "AC-001"
+        assert chains[1].path_id == "AC-002"
+
+    @patch(
+        "redcheck.core.attack_chain_scorer.AttackPathCorrelator.correlate",
+        autospec=True,
+    )
+    @patch(
+        "redcheck.core.attack_chain_scorer.AttackPathCorrelator.ingest_findings",
+        autospec=True,
+    )
+    def test_score_summary_with_chains(self, mock_ingest, mock_correlate):
+        mock_correlate.side_effect = self._mock_correlate
+        scorer = AttackChainScorer()
+        summary = scorer.score_summary(self._results())
+        assert summary["chain_count"] == 2
+        assert summary["highest_risk_score"] > 0
+        assert summary["highest_risk_rating"] in ("CRITICAL", "HIGH", "MEDIUM", "LOW")
+        assert isinstance(summary["ratings_breakdown"], dict)
+        total = sum(summary["ratings_breakdown"].values())
+        assert total == 2

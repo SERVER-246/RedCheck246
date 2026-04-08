@@ -361,10 +361,7 @@ class AttackChainScorer:
         # Risk formula:
         # risk = impact × likelihood × (exploitability/10) × (1 - detection_prob)
         risk_score = (
-            impact
-            * composite_likelihood
-            * (exploitability / 10.0)
-            * (1.0 - detection_prob)
+            impact * composite_likelihood * (exploitability / 10.0) * (1.0 - detection_prob)
         )
         # Clamp to 0..10
         risk_score = max(0.0, min(10.0, risk_score))

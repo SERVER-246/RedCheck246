@@ -65,6 +65,11 @@ except ImportError:  # pragma: no cover
 # ---------------------------------------------------------------------------
 
 
+def _finding_dump(finding: Any) -> dict[str, Any]:
+    """Serialize a Finding to a JSON-compatible dict."""
+    return finding.model_dump(mode="json")
+
+
 class ReportMetadata:
     """Metadata block for every generated report."""
 
@@ -122,8 +127,11 @@ class JSONReportGenerator:
             attack_chain_summary: Optional pre-computed attack chain scoring.
 
         Returns:
-            A JSON-serializable dict with metadata, summary, findings, evidence.
+            A JSON-serializable dict with metadata, summary, findings,
+            evidence, and mode-segregated sections.
         """
+        from redcheck.core.mode_separator import segregate_findings
+
         if metadata is None:
             metadata = ReportMetadata(engagement_id=scan_report.engagement_id)
 
@@ -136,9 +144,13 @@ class JSONReportGenerator:
                 all_findings.extend(pr.findings)
                 all_evidence.extend(e.model_dump(mode="json") for e in pr.evidence)
 
-        # Build severity summary
+        # --- Mode segregation (Phase E) ---
+        seg = segregate_findings(all_findings)
+        _dump = _finding_dump  # local alias
+
+        # Executive summary counts ONLY real findings
         severity_counts: dict[str, int] = {}
-        for f in all_findings:
+        for f in seg.real:
             sev = f.severity.value
             severity_counts[sev] = severity_counts.get(sev, 0) + 1
 
@@ -146,11 +158,17 @@ class JSONReportGenerator:
             "metadata": metadata.to_dict(),
             "summary": {
                 "total_findings": len(all_findings),
+                "real_findings": len(seg.real),
+                "simulated_findings": len(seg.simulated),
+                "dry_run_findings": len(seg.dry_run),
                 "severity_counts": severity_counts,
+                "mode_breakdown": seg.to_dict(),
                 "duration_seconds": scan_report.duration_seconds,
                 "scanner": scan_report.scanner,
             },
-            "findings": [f.model_dump(mode="json") for f in all_findings],
+            "findings": [_dump(f) for f in seg.real],
+            "simulated_results": [_dump(f) for f in seg.simulated],
+            "dry_run_plans": [_dump(f) for f in seg.dry_run],
             "evidence": all_evidence,
             "signature": None,
         }
