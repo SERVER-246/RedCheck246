@@ -110,6 +110,7 @@ class JSONReportGenerator:
         *,
         metadata: ReportMetadata | None = None,
         quality_score: QualityScore | None = None,
+        attack_chain_summary: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Generate a JSON-serializable report dict.
 
@@ -118,6 +119,7 @@ class JSONReportGenerator:
             plugin_results: Optional per-plugin results.
             metadata: Optional report metadata (auto-generated if None).
             quality_score: Optional pre-computed quality score.
+            attack_chain_summary: Optional pre-computed attack chain scoring.
 
         Returns:
             A JSON-serializable dict with metadata, summary, findings, evidence.
@@ -156,6 +158,9 @@ class JSONReportGenerator:
         if quality_score is not None:
             report["quality"] = quality_score.to_dict()
 
+        if attack_chain_summary is not None:
+            report["attack_chains"] = attack_chain_summary
+
         return report
 
     def generate_json(
@@ -165,6 +170,7 @@ class JSONReportGenerator:
         *,
         metadata: ReportMetadata | None = None,
         quality_score: QualityScore | None = None,
+        attack_chain_summary: dict[str, Any] | None = None,
         indent: int = 2,
     ) -> str:
         """Generate a JSON string report."""
@@ -173,6 +179,7 @@ class JSONReportGenerator:
             plugin_results,
             metadata=metadata,
             quality_score=quality_score,
+            attack_chain_summary=attack_chain_summary,
         )
         return json.dumps(report, indent=indent, default=str, ensure_ascii=False)
 

@@ -10,7 +10,9 @@ from typing import TYPE_CHECKING, Any
 
 import structlog
 
+from redcheck.core.attack_chain_scorer import AttackChainScorer
 from redcheck.exceptions import ChainModeError, PipelineError  # noqa: F401
+from redcheck.models import AttackerClass
 from redcheck.plugins.base_plugin import PluginRegistry, PluginResult
 
 if TYPE_CHECKING:
@@ -214,11 +216,17 @@ class PipelineExecutor:
     def __init__(self, orchestrator: Orchestrator) -> None:
         self._orch = orchestrator
         self._results: dict[str, PluginResult] = {}
+        self._attack_chain_summary: dict[str, Any] | None = None
 
     @property
     def results(self) -> dict[str, PluginResult]:
         """Read-only access to accumulated results."""
         return dict(self._results)
+
+    @property
+    def attack_chain_summary(self) -> dict[str, Any] | None:
+        """Attack-chain scoring results (available after pipeline execution)."""
+        return self._attack_chain_summary
 
     async def execute_pipeline(
         self,
@@ -379,4 +387,35 @@ class PipelineExecutor:
             engagement_id=engagement.engagement_id,
         )
 
+        # Attack-chain scoring — post-pipeline cross-plugin analysis
+        self._attack_chain_summary = self._run_attack_chain_scoring(
+            engagement,
+        )
+
         return dict(self._results)
+
+    # ------------------------------------------------------------------
+    # Attack-chain scoring (Phase D)
+    # ------------------------------------------------------------------
+
+    def _run_attack_chain_scoring(
+        self,
+        engagement: EngagementContext,
+    ) -> dict[str, Any] | None:
+        """Score cross-plugin attack chains after pipeline completes."""
+        if not self._results:
+            return None
+        try:
+            scorer = AttackChainScorer(
+                attacker_class=engagement.attacker_class or AttackerClass.AC2,
+            )
+            summary = scorer.score_summary(self._results)
+            log.info(
+                "attack_chain_scoring_complete",
+                chain_count=summary["chain_count"],
+                highest_risk=summary["highest_risk_rating"],
+            )
+            return summary
+        except Exception:
+            log.warning("attack_chain_scoring_failed", exc_info=True)
+            return None
