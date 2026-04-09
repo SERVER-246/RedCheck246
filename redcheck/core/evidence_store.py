@@ -129,12 +129,14 @@ class EvidenceStore:
             stored_data = p.read_bytes()
 
             if entry.get("encrypted"):
-                # For encrypted entries, verify the file exists and is
-                # valid JSON with the expected structure.
+                # For encrypted entries, verify valid JSON structure and
+                # that the on-disk ciphertext blob hasn't been tampered with.
                 try:
                     enc = json.loads(stored_data)
                     if enc.get("algorithm") != "AES-256-GCM":
                         errors.append(f"Bad encryption algo: {entry['path']}")
+                    if not enc.get("ciphertext") or not enc.get("nonce"):
+                        errors.append(f"Missing ciphertext/nonce: {entry['path']}")
                 except (json.JSONDecodeError, KeyError):
                     errors.append(f"Corrupt encrypted file: {entry['path']}")
             else:

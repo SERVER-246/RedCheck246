@@ -532,7 +532,15 @@ class Orchestrator:
         for ev in result.evidence:
             try:
                 ev_path = Path(ev.path)
-                data = ev_path.read_bytes() if ev_path.is_file() else ev.sha256.encode("utf-8")
+                if not ev_path.is_file():
+                    log.warning(
+                        "evidence_file_missing",
+                        plugin=result.plugin_name,
+                        path=str(ev_path),
+                        sha256=ev.sha256[:12],
+                    )
+                    continue
+                data = ev_path.read_bytes()
                 self._evidence_store.store(
                     data=data,
                     evidence_type=ev.evidence_type,

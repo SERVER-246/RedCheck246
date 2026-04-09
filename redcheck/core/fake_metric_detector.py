@@ -9,7 +9,6 @@ Detection rules (FM-1 through FM-4) from the improvement plan.
 
 from __future__ import annotations
 
-import contextlib
 from typing import TYPE_CHECKING, Any
 
 import structlog
@@ -79,8 +78,14 @@ def _downgrade_finding(finding: Any, reason: str) -> None:
     original = getattr(finding, "severity", None)
     if original and original != FindingSeverity.INFO:
         meta["original_severity"] = original.value if hasattr(original, "value") else str(original)
-        with contextlib.suppress(AttributeError, ValueError):
+        try:
             finding.severity = FindingSeverity.INFO
+        except (AttributeError, ValueError):
+            log.warning(
+                "fake_metric_downgrade_failed",
+                finding_type=getattr(finding, "finding_type", ""),
+                reason=reason,
+            )
 
 
 # ------------------------------------------------------------------
