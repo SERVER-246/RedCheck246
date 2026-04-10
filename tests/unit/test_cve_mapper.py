@@ -5,6 +5,8 @@ Coverage: version range matching, CVE lookup, plugin execution, dry run.
 
 from __future__ import annotations
 
+import pytest
+
 from redcheck.models import PluginCapability
 from redcheck.plugins.exploit.cve_mapper import (
     _CVE_DATABASE,
@@ -175,3 +177,74 @@ class TestCVEMapperPlugin:
 
     def test_passive_capability(self):
         assert CVEMapper.capability == PluginCapability.PASSIVE
+
+
+# ---------------------------------------------------------------------------
+# _derive_services_from_targets
+# ---------------------------------------------------------------------------
+
+
+class TestDeriveServicesFromTargets:
+    def test_dict_targets_with_ports(self):
+        plugin = CVEMapper()
+        ctx = {"authorized_targets": [{"host": "evil.com", "ports": [22, 80, 443]}]}
+        services = plugin._derive_services_from_targets(ctx)
+        svc_names = [s["service"] for s in services]
+        assert "openssh" in svc_names
+        assert "http" in svc_names
+        assert "https" in svc_names
+
+    def test_string_targets_with_port(self):
+        plugin = CVEMapper()
+        ctx = {"targets": ["evil.com:3306"]}
+        services = plugin._derive_services_from_targets(ctx)
+        assert len(services) == 1
+        assert services[0]["service"] == "mysql"
+        assert services[0]["port"] == "3306"
+
+    def test_string_target_unknown_port(self):
+        plugin = CVEMapper()
+        ctx = {"targets": ["evil.com:99999"]}
+        services = plugin._derive_services_from_targets(ctx)
+        assert len(services) == 0
+
+    def test_dict_target_unknown_port(self):
+        plugin = CVEMapper()
+        ctx = {"targets": [{"ports": [12345]}]}
+        services = plugin._derive_services_from_targets(ctx)
+        assert len(services) == 0
+
+    def test_fallback_targets_key(self):
+        plugin = CVEMapper()
+        ctx = {"targets": ["evil.com:22"]}
+        services = plugin._derive_services_from_targets(ctx)
+        assert len(services) == 1
+        assert services[0]["service"] == "openssh"
+
+    def test_execute_with_derived_targets(self):
+        """Execute falls through to derive when no discovered_services."""
+        plugin = CVEMapper()
+        result = plugin.execute({"targets": ["evil.com:22"]})
+        assert result.success
+        # openssh with unknown version won't match CVE range checks
+        assert result.metadata["services_checked"] >= 1
+
+
+# ---------------------------------------------------------------------------
+# Async execution
+# ---------------------------------------------------------------------------
+
+
+class TestCVEMapperAsync:
+    @pytest.mark.asyncio
+    async def test_aexecute_returns_same_as_execute(self):
+        plugin = CVEMapper()
+        ctx = {
+            "discovered_services": [
+                {"service": "log4j", "version": "2.10.0"},
+            ]
+        }
+        result = await plugin.aexecute(ctx)
+        assert result.success
+        assert len(result.findings) >= 1
+        assert result.findings[0]["cve_id"] == "CVE-2021-44228"

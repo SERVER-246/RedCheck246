@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -216,3 +216,81 @@ class TestValidateAllTargets:
         # confidence will be 0.5, which should be above default min
         results = await v.validate_all_targets(["a.com"])
         assert len(results) == 1
+
+
+# ---------------------------------------------------------------------------
+# TLS failure paths
+# ---------------------------------------------------------------------------
+
+
+class TestTLSFailurePaths:
+    @pytest.mark.asyncio
+    async def test_ssl_obj_none(self):
+        v = TargetIdentityValidator(verify_tls=True, verify_dns=False)
+        mock_writer = MagicMock()
+        mock_writer.get_extra_info.return_value = None
+        mock_writer.close = MagicMock()
+        mock_reader = AsyncMock()
+        with patch("asyncio.wait_for", return_value=(mock_reader, mock_writer)):
+            result = await v._verify_tls_identity("example.com")
+            assert result.hostname_matches is False
+            assert result.issuer == "unknown"
+            assert result.cert_expired is True
+
+    @pytest.mark.asyncio
+    async def test_cert_none(self):
+        v = TargetIdentityValidator(verify_tls=True, verify_dns=False)
+        mock_ssl = MagicMock()
+        mock_ssl.getpeercert.return_value = None
+        mock_writer = MagicMock()
+        mock_writer.get_extra_info.return_value = mock_ssl
+        mock_writer.close = MagicMock()
+        mock_reader = AsyncMock()
+        with patch("asyncio.wait_for", return_value=(mock_reader, mock_writer)):
+            result = await v._verify_tls_identity("example.com")
+            assert result.hostname_matches is False
+            assert result.cert_expired is True
+
+    @pytest.mark.asyncio
+    async def test_connection_error(self):
+        v = TargetIdentityValidator(verify_tls=True, verify_dns=False)
+        with patch("asyncio.wait_for", side_effect=OSError("Connection refused")):
+            result = await v._verify_tls_identity("example.com")
+            assert result.hostname_matches is False
+            assert result.issuer == "unknown"
+
+    @pytest.mark.asyncio
+    async def test_invalid_notafter_format(self):
+        v = TargetIdentityValidator(verify_tls=True, verify_dns=False)
+        mock_ssl = MagicMock()
+        mock_ssl.getpeercert.return_value = {
+            "subject": ((("commonName", "example.com"),),),
+            "subjectAltName": (("DNS", "example.com"),),
+            "notAfter": "INVALID-DATE",
+            "issuer": ((("organizationName", "TestCA"),),),
+        }
+        mock_writer = MagicMock()
+        mock_writer.get_extra_info.return_value = mock_ssl
+        mock_writer.close = MagicMock()
+        mock_reader = AsyncMock()
+        with patch("asyncio.wait_for", return_value=(mock_reader, mock_writer)):
+            result = await v._verify_tls_identity("example.com")
+            assert result.hostname_matches is True
+            assert result.cert_cn == "example.com"
+
+
+# ---------------------------------------------------------------------------
+# DNS failure paths
+# ---------------------------------------------------------------------------
+
+
+class TestDNSFailurePaths:
+    @pytest.mark.asyncio
+    async def test_dns_forward_failure(self):
+        v = TargetIdentityValidator(verify_tls=False, verify_dns=True)
+        import socket
+
+        with patch("asyncio.wait_for", side_effect=socket.gaierror("DNS failed")):
+            result = await v._verify_dns_consistency("example.com")
+            assert result.forward_ips == []
+            assert result.consistent is False

@@ -181,3 +181,62 @@ class TestIDORDryRun:
         assert result.metadata["mode"] == "dry-run"
         assert "deterministic_ids" in result.metadata
         assert len(result.metadata["deterministic_ids"]) == 5
+
+
+# ---------------------------------------------------------------------------
+# _derive_endpoints
+# ---------------------------------------------------------------------------
+
+
+class TestDeriveEndpoints:
+    def test_string_target_adds_https(self):
+        endpoints = IDORValidator._derive_endpoints({"targets": ["evil.com"]})
+        assert all(ep.startswith("https://evil.com/") for ep in endpoints)
+        assert len(endpoints) == 3  # 3 common IDOR paths
+
+    def test_string_target_preserves_https(self):
+        endpoints = IDORValidator._derive_endpoints({"targets": ["https://app.test"]})
+        assert all(ep.startswith("https://app.test/") for ep in endpoints)
+
+    def test_string_target_preserves_http(self):
+        endpoints = IDORValidator._derive_endpoints({"targets": ["http://app.test"]})
+        assert all(ep.startswith("http://app.test/") for ep in endpoints)
+
+    def test_dict_target(self):
+        endpoints = IDORValidator._derive_endpoints(
+            {"targets": [{"host": "api.example.com"}]}
+        )
+        assert len(endpoints) == 3
+        assert all("api.example.com" in ep for ep in endpoints)
+
+    def test_strips_trailing_slash(self):
+        endpoints = IDORValidator._derive_endpoints({"targets": ["https://app.test/"]})
+        # Should not have double slashes
+        assert all("//" not in ep.split("://", 1)[1] for ep in endpoints)
+
+    def test_empty_targets(self):
+        endpoints = IDORValidator._derive_endpoints({})
+        assert endpoints == []
+
+    def test_authorized_targets_fallback(self):
+        endpoints = IDORValidator._derive_endpoints(
+            {"authorized_targets": ["evil.com"]}
+        )
+        assert len(endpoints) == 3
+
+
+# ---------------------------------------------------------------------------
+# Controls edge cases
+# ---------------------------------------------------------------------------
+
+
+class TestIDORControlsEdgeCases:
+    def test_empty_dict_controls_raises(self):
+        plugin = IDORValidator()
+        with pytest.raises(OffensiveControlError):
+            plugin.execute({"offensive_controls": {}})
+
+    def test_non_dict_non_obj_controls(self):
+        plugin = IDORValidator()
+        with pytest.raises(OffensiveControlError):
+            plugin.execute({"offensive_controls": "invalid"})
