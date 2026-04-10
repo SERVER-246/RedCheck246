@@ -203,9 +203,7 @@ class TestDeriveEndpoints:
         assert all(ep.startswith("http://app.test/") for ep in endpoints)
 
     def test_dict_target(self):
-        endpoints = IDORValidator._derive_endpoints(
-            {"targets": [{"host": "api.example.com"}]}
-        )
+        endpoints = IDORValidator._derive_endpoints({"targets": [{"host": "api.example.com"}]})
         assert len(endpoints) == 3
         assert all("api.example.com" in ep for ep in endpoints)
 
@@ -219,9 +217,7 @@ class TestDeriveEndpoints:
         assert endpoints == []
 
     def test_authorized_targets_fallback(self):
-        endpoints = IDORValidator._derive_endpoints(
-            {"authorized_targets": ["evil.com"]}
-        )
+        endpoints = IDORValidator._derive_endpoints({"authorized_targets": ["evil.com"]})
         assert len(endpoints) == 3
 
 

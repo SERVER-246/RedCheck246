@@ -5,6 +5,36 @@ All notable changes to RedCheck246 are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] — 2026-04-10
+
+### 🔬 Phases A–F — Architecture Hardening & Live Validation
+
+#### Added
+
+- **Plugin dependency graph** (Phase A) — Topological ordering with cycle detection, `DependencyGraph` class, 23 plugins correctly ordered
+- **Tier 2 plugin expansion** (Phase B) — Network scanner (TCP SYN/connect, service fingerprinting), crypto analyser (hash strength, entropy scoring), OSINT (CT monitoring, breach lookup), exploit verifier (CVE↔CPE, EPSS, KEV), detection coverage validator
+- **Auth session tester** (Phase C) — CSRF token validation, session fixation detection, cookie scope analysis
+- **Attack chain scoring** (Phase D) — Cross-plugin finding correlation via Dijkstra/Yen's k-shortest-paths over probabilistic exploit graphs, MITRE ATT&CK annotations
+- **Mode separation** (Phase E) — `TEST_MODE` vs `LIVE_MODE` field segregation ensuring simulated findings are never mixed with live results
+- **Deep codebase audit** (Phase pre-F) — 3 integrity/safety fixes: evidence data corruption guard, silent failure suppression removal, encrypted integrity check hardening. 16 false positives dismissed, all imports AST-verified
+- **End-to-end validation** (Phase F) — Programmatic live run of all 18 ROE-listed plugins against evil.com in TEST_MODE. 18/18 pass, 105 findings, 341.3s. 18 JSON reports, 14 evidence files generated
+- Coverage tests for `cve_mapper`, `idor_checker`, `target_validator` (push coverage to 90.69%)
+- `tests/phase_f_validation.py` — Standalone E2E validation script
+
+#### Changed
+
+- `pyproject.toml` — Added per-file-ignores for validation script (T201, F401)
+- README badges — Updated test count (2195) and coverage (90%)
+
+#### Fixed
+
+- `orchestrator._index_evidence` — Skip missing files instead of storing corrupt data
+- `fake_metric_detector._downgrade_finding` — Explicit try/except + logging instead of silent `contextlib.suppress`
+- `evidence_store.verify_integrity` — SHA-256 check for encrypted entries
+- Bandit B105 false-positive suppressed on `auth_tester` probe credential
+
+---
+
 ## [0.3.0] — 2025-06-22
 
 ### 🏢 Phase 5 — Commercial Readiness
