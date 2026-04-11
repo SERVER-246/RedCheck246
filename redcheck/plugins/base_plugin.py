@@ -166,6 +166,25 @@ class BasePlugin(ABC):
             return False, "Empty context"
         return True, "Context valid"
 
+    def explain_missing_dependencies(self, context: dict[str, Any]) -> dict[str, Any]:
+        """Return structured explanation of what upstream data is missing and why.
+
+        Plugins SHOULD override this to give specific diagnostics when
+        upstream data they need is absent.  The default implementation
+        checks ``_dep_required`` against ``upstream_plugins`` in context.
+        """
+        upstream = set(context.get("upstream_plugins") or [])
+        missing = [dep for dep in self._dep_required if dep not in upstream]
+        return {
+            "plugin": self.name,
+            "missing_dependencies": missing,
+            "explanation": (
+                f"Requires data from {missing} but they did not execute"
+                if missing
+                else "All required dependencies satisfied"
+            ),
+        }
+
     def capture_evidence(
         self,
         context: dict[str, Any],
@@ -211,14 +230,43 @@ class PluginRegistry:
     """
 
     _plugins: dict[str, type[BasePlugin]] = {}
+    _plugin_hashes: dict[str, str] = {}
 
     @classmethod
     def register(cls, plugin_class: type[BasePlugin]) -> None:
-        """Register a plugin class."""
+        """Register a plugin class and record its source hash."""
         name = getattr(plugin_class, "name", None)
         if name and name != "unnamed":
             cls._plugins[name] = plugin_class
+            # Compute SHA-256 of the plugin's source file for integrity (Phase O)
+            cls._plugin_hashes[name] = cls._compute_source_hash(plugin_class)
             log.debug("plugin_registered", plugin=name)
+
+    @classmethod
+    def _compute_source_hash(cls, plugin_class: type[BasePlugin]) -> str:
+        """Return SHA-256 hex digest of the plugin's source file."""
+        import hashlib
+        import inspect
+
+        try:
+            source_file = inspect.getfile(plugin_class)
+            with open(source_file, "rb") as f:
+                return hashlib.sha256(f.read()).hexdigest()
+        except (TypeError, OSError):
+            return ""
+
+    @classmethod
+    def verify_plugin_integrity(cls, trusted_hashes: dict[str, str]) -> list[str]:
+        """Check registered plugins against trusted hashes.
+
+        Returns list of plugin names that fail integrity check.
+        """
+        violations: list[str] = []
+        for name, expected in trusted_hashes.items():
+            actual = cls._plugin_hashes.get(name, "")
+            if not actual or actual != expected:
+                violations.append(name)
+        return violations
 
     @classmethod
     def discover_entry_points(cls, group: str = "redcheck.plugins") -> None:
@@ -275,6 +323,16 @@ class PluginRegistry:
     def list_names(cls) -> list[str]:
         """List all registered plugin names."""
         return sorted(cls._plugins.keys())
+
+    @classmethod
+    def all_plugins(cls) -> dict[str, type[BasePlugin]]:
+        """Return a copy of the plugin registry dict."""
+        return dict(cls._plugins)
+
+    @classmethod
+    def unregister(cls, name: str) -> None:
+        """Remove a plugin from the registry by name."""
+        cls._plugins.pop(name, None)
 
     @classmethod
     def clear(cls) -> None:

@@ -79,13 +79,18 @@ class AuditLogger:
 
     _lock = threading.Lock()
 
-    def __init__(self, log_path: str | Path | None = None) -> None:
+    def __init__(
+        self,
+        log_path: str | Path | None = None,
+        signing_key: bytes | None = None,
+    ) -> None:
         self._log_path = Path(log_path or self._default_log_path())
         self._log_path.parent.mkdir(parents=True, exist_ok=True)
         self._previous_hash = "GENESIS"
         self._session_code: str | None = None
         self._session_id: str | None = None
         self._key: bytes | None = None
+        self._signing_key = signing_key  # Ed25519 private key bytes (Phase O)
 
         # Try to continue chain from existing log
         self._previous_hash = self._recover_last_hash()
@@ -129,6 +134,32 @@ class AuditLogger:
     def _compute_hash(self, entry: dict[str, object]) -> str:
         raw = json.dumps(entry, sort_keys=True, default=str) + str(self._previous_hash)
         return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
+
+    def _sign_entry(self, entry: dict[str, object]) -> str:
+        """Sign the entry hash with Ed25519 and return base64 signature."""
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
+        privkey = Ed25519PrivateKey.from_private_bytes(self._signing_key)
+        payload = str(entry.get("hash", "")).encode("utf-8")
+        sig = privkey.sign(payload)
+        return base64.b64encode(sig).decode("ascii")
+
+    @staticmethod
+    def verify_entry_signature(entry: dict[str, object], public_key_bytes: bytes) -> bool:
+        """Verify an entry's Ed25519 signature against a public key."""
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+
+        sig_b64 = entry.get("signature")
+        if not sig_b64 or not isinstance(sig_b64, str):
+            return False
+        try:
+            pubkey = Ed25519PublicKey.from_public_bytes(public_key_bytes)
+            sig = base64.b64decode(sig_b64)
+            payload = str(entry.get("hash", "")).encode("utf-8")
+            pubkey.verify(sig, payload)
+            return True
+        except Exception:
+            return False
 
     def _recover_last_hash(self) -> str:
         """Try to read the last hash from an unencrypted legacy log."""
@@ -175,6 +206,10 @@ class AuditLogger:
         }
         entry["hash"] = self._compute_hash(entry)
         self._previous_hash = str(entry["hash"])
+
+        # Optional Ed25519 non-repudiation signing (Phase O)
+        if self._signing_key and _HAS_CRYPTO:
+            entry["signature"] = self._sign_entry(entry)
 
         # Emit to structlog (plaintext, in-memory only)
         logger.info(

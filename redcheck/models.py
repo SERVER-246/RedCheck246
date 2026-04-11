@@ -38,6 +38,16 @@ class PluginCapability(str, enum.Enum):
     DESTRUCTIVE = "destructive"
 
 
+class PluginExecutionStatus(str, enum.Enum):
+    """Execution lifecycle status for a single plugin within a run."""
+
+    PENDING = "pending"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    SKIPPED = "skipped"
+
+
 class FindingSeverity(str, enum.Enum):
     """CVSS-aligned severity levels."""
 
@@ -46,6 +56,14 @@ class FindingSeverity(str, enum.Enum):
     MEDIUM = "medium"
     LOW = "low"
     INFO = "info"
+
+
+class VerificationStatus(str, enum.Enum):
+    """Finding verification confidence level (Phase N)."""
+
+    CONFIRMED = "confirmed"
+    SUSPECTED = "suspected"
+    UNVERIFIED = "unverified"
 
 
 class AuditLevel(str, enum.Enum):
@@ -119,6 +137,7 @@ class PluginMetadata(BaseModel):
     rate_limit_rps: int = Field(default=10, ge=1, le=50)
     mitre_techniques: list[str] = Field(default_factory=list)
     requires_isolation: bool = False
+    memory_limit_mb: int = Field(default=512, ge=64, le=4096)
 
 
 class TargetSpec(BaseModel):
@@ -149,9 +168,17 @@ class Finding(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
     plugin: str | None = None
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    confidence: str = "medium"  # low | medium | high
     evidence_digest: str | None = None
     sampled_data_len: int | None = None
     mitre_technique: str | None = None
+    # Phase N — Data provenance
+    derived_from: list[str] | None = None
+    transformation: str | None = None
+    source_chain: list[str] | None = None
+    # Phase N — False positive control
+    verification_status: VerificationStatus = VerificationStatus.UNVERIFIED
+    false_positive_likelihood: float | None = Field(default=None, ge=0.0, le=1.0)
 
     def __getitem__(self, key: str) -> Any:
         """Dict-style read: check model fields first, then metadata."""
@@ -214,6 +241,15 @@ def _dict_to_finding(raw: dict[str, Any]) -> Finding:
     valid_sevs = {e.value for e in FindingSeverity}
     if isinstance(sev, str) and sev.lower() not in valid_sevs:
         finding_data["severity"] = "info"
+    # Coerce numeric confidence to string category
+    conf = finding_data.get("confidence")
+    if isinstance(conf, (int, float)):
+        if conf >= 0.8:
+            finding_data["confidence"] = "high"
+        elif conf >= 0.4:
+            finding_data["confidence"] = "medium"
+        else:
+            finding_data["confidence"] = "low"
     return Finding.model_validate(finding_data)
 
 
@@ -243,6 +279,10 @@ class PluginResult(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
     duration_ms: float | None = None
     mode: str = "live"
+    # dependency_missing | config_missing | execution_error | no_target | ...
+    error_type: str | None = None
+    error_message: str | None = None
+    failure_stage: str | None = None  # init | execution | validation | post-processing
 
     @field_validator("findings", mode="before")
     @classmethod
@@ -430,6 +470,37 @@ class RoEDocument(BaseModel):
         if end.tzinfo is None:
             end = end.replace(tzinfo=timezone.utc)
         return max(0.0, (end - now).total_seconds())
+
+
+class ExecutionState(BaseModel):
+    """Persistent execution state for checkpoint / resume / replay."""
+
+    engagement_id: str
+    run_id: str
+    started_at: datetime
+    updated_at: datetime
+    plugin_states: dict[str, PluginExecutionStatus] = Field(default_factory=dict)
+    completed_plugins: list[str] = Field(default_factory=list)
+    failed_plugins: list[str] = Field(default_factory=list)
+    skipped_plugins: list[str] = Field(default_factory=list)
+    results_index: dict[str, str] = Field(default_factory=dict)
+    config_hash: str = ""
+
+
+class InputSnapshot(BaseModel):
+    """Deterministic snapshot of all inputs observed at scan start (Phase L).
+
+    Allows auditors to verify that a report was generated from a specific
+    input state.  ``snapshot_hash`` is computed from all captured data.
+    """
+
+    run_id: str
+    captured_at: datetime
+    dns_resolutions: dict[str, list[str]] = Field(default_factory=dict)
+    http_responses: dict[str, str] = Field(default_factory=dict)
+    plugin_inputs: dict[str, str] = Field(default_factory=dict)
+    target_fingerprint: str = ""
+    snapshot_hash: str = ""
 
 
 class AuditEntry(BaseModel):

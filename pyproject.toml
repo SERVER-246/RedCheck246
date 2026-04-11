@@ -65,6 +65,7 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = ["S106", "S105", "S108", "ANN", "D", "TCH"]
+"tests/unit/test_sandbox_executor.py" = ["S106", "S105", "S108", "ANN", "D", "TCH", "E402"]
 "tests/phase_f_validation.py" = ["S106", "S105", "S108", "ANN", "D", "TCH", "T201"]
 "run_ci_checks.py" = ["T201", "S603", "E501"]
 "redcheck/cli.py" = ["PT028"]

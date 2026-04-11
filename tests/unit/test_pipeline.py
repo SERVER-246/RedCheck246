@@ -170,6 +170,7 @@ class TestPipelineExecutor:
         eng.engagement_id = "eng-001"
         eng.offensive_controls = OffensiveControls()
         eng.targets = ["example.com"]
+        eng.scan_timeout_seconds = 300
         return eng
 
     @pytest.mark.asyncio

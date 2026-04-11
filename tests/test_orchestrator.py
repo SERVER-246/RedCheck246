@@ -13,7 +13,6 @@ from redcheck.exceptions import (
     PluginNotFoundError,
     PolicyDeniedException,
     RoEValidationError,
-    ScanTimeoutError,
 )
 from redcheck.models import (
     EngagementContext,
@@ -390,8 +389,9 @@ class TestAsyncEnforcement:
     async def test_step11_timeout_fires(self):
         orch = Orchestrator()
         ctx = _make_engagement()
-        with pytest.raises(ScanTimeoutError):
-            await orch.arun_plugin("slow-test", ctx)
+        result = await orch.arun_plugin("slow-test", ctx)
+        assert result.success is False
+        assert result.error_type == "timeout"
 
     @pytest.mark.asyncio
     async def test_engagement_model_round_trip(self):

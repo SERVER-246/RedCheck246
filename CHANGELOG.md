@@ -5,6 +5,65 @@ All notable changes to RedCheck246 are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] — Phases H/K/M/O/I/L/N/J (All 8 Phases Complete)
+
+### 🛡️ Phases H, K, M, O — Failure Intelligence, State Persistence, Timeout Hardening & Self-Security
+
+#### Added
+
+- **Failure Intelligence Layer** (Phase H) — `FailureAnalyzer` in `core/failure_analyzer.py` with exception→(error_type, failure_stage) classification. Wired into orchestrator `run_plugin()` and `arun_plugin()` exception handlers
+- **Contract checks C7, C8, C9** (Phase H) — `_check_c7_failure_transparency()` enforces structured error fields on failures; `_check_c9_no_fabrication()` replaces zero-value metrics with `[UNKNOWN]` sentinel; `explain_missing_dependencies()` on `BasePlugin` (C8)
+- **First-class model fields** (Phase H) — `confidence: str` on `Finding`; `error_type`, `error_message`, `failure_stage` on `PluginResult`; `memory_limit_mb` on `PluginMetadata`
+- **Execution State Persistence** (Phase K) — `ExecutionState` model + `PluginExecutionStatus` enum; `ExecutionStateManager` with atomic checkpoint/resume/compare; pipeline wired with per-plugin checkpoints
+- **Sync plugin timeout** (Phase M) — `run_plugin()` wrapped in `ThreadPoolExecutor` with per-plugin `timeout_seconds`
+- **Global pipeline deadline** (Phase M) — `scan_timeout_seconds` enforced with deadline check per plugin; remaining plugins get structured `pipeline_timeout` error
+- **Sandbox executor** (Phase M) — `core/sandbox_executor.py` subprocess isolation for `requires_isolation=True` plugins with `memory_limit_mb` and `resource.setrlimit`
+- **Async timeout structured result** (Phase M) — `arun_plugin()` returns structured `PluginResult` on timeout instead of raising `ScanTimeoutError`
+- **Config tamper detection** (Phase O) — `from_yaml_verified()` with SHA-256 + constant-time comparison; `ConfigTamperError` exception
+- **Plugin allowlist** (Phase O) — `plugin_allowlist` config field + `enforce_plugin_allowlist()` registry filter
+- **Plugin integrity at load** (Phase O) — SHA-256 source hash computed at registration; `verify_plugin_integrity()` checks against trusted manifest
+- **Audit log non-repudiation** (Phase O) — Optional Ed25519 signing on audit entries; `verify_entry_signature()` static method
+- Test suites: `test_failure_analyzer`, `test_contract_c7_c9`, `test_state_manager`, `test_timeout_enforcement`, `test_sandbox_executor`, `test_config_tamper`, `test_plugin_allowlist`, `test_plugin_integrity`, `test_audit_signing`
+
+### 🔬 Phases I, L, N — System Trust, Input Snapshotting & Provenance
+
+#### Added
+
+- **System Trust Assessor** (Phase I) — `core/trust_assessor.py` with `SystemTrustAssessment` dataclass. Computes HIGH/MEDIUM/LOW trust level from quality score, contract violations, evidence coverage, and fake metrics. `safe_to_use_for_decision` flag for report consumers
+- **Trust assessment in reports** (Phase I) — `reporting.py` `generate()` accepts `trust_assessment` parameter; exported as `report["system_trust"]`
+- **Chain mode disabled warning** (Phase I) — `pipeline.py` logs `chain_mode_disabled` warning when `chain=False`, alerting that cross-plugin intelligence is disabled
+- **Input Snapshot model** (Phase L) — `InputSnapshot` in `models.py` with `dns_resolutions`, `http_responses`, `plugin_inputs`, `target_fingerprint`, `snapshot_hash` for deterministic reproducibility
+- **Input Snapshot Capture** (Phase L) — `core/input_snapshot.py` with `InputSnapshotCapture` builder class. DNS resolution, HTTP response hashing, plugin input hashing, target fingerprinting, deterministic `snapshot_hash`
+- **Input snapshot in reports** (Phase L) — `reporting.py` `generate()` accepts `input_snapshot` parameter; exported as `report["input_snapshot"]`
+- **Data provenance fields** (Phase N) — `derived_from`, `transformation`, `source_chain` on `Finding` model for full data lineage tracking
+- **Verification status** (Phase N) — `VerificationStatus` enum (CONFIRMED/SUSPECTED/UNVERIFIED) + `false_positive_likelihood: float` on `Finding`
+- **Cross-plugin verifier** (Phase N) — `core/cross_verifier.py` with exploit verification upgrade, SAST+DAST cross-match confirmation, and confidence-based FP likelihood inference
+- **Environment probe** (Phase N) — `core/environment_probe.py` with `EnvironmentStatus` dataclass and `probe_environment()` pre-flight DNS/TCP assessment
+- **Orchestrator environment wiring** (Phase N) — `probe_environment()` and `validate_targets()` methods on `Orchestrator`; `TargetIdentityValidator` wired into pre-execution
+- **Source chain in pipeline** (Phase N) — Pipeline populates `source_chain` on findings during chain mode execution
+- Test suites: `test_trust_assessor` (15 tests), `test_input_snapshot` (10 tests), `test_cross_verifier` (9 tests), `test_environment_probe` (10 tests), `test_chain_mode_warning` (2 tests)
+
+### ⚡ Phase J — Rate Limiting & Production Readiness
+
+#### Added
+
+- **Orchestrator rate limiting** (Phase J) — `TokenBucket` per-plugin in both `run_plugin()` (sync `try_acquire()` loop) and `arun_plugin()` (async `await acquire()` at Step 9). Buckets cached in `_rate_limiters` dict with rate from `plugin.rate_limit_rps`
+- **Production readiness auto-check** (Phase J) — `core/production_readiness.py` with `check_production_readiness()` evaluating 8 criteria: evidence coverage ≥80%, enrichment ≥80%, no fake metrics, all failures explained, chain mode enabled, detection uses real signals, attack chains generated, reports reproducible. Returns `all_pass` aggregate
+- **Production readiness in reports** (Phase J) — `reporting.py` `generate()` accepts `production_readiness` parameter; exported as `report["production_readiness"]`
+- Test suites: `test_rate_limiter_orchestrator` (10 tests), `test_production_readiness` (29 tests)
+
+#### Fixed
+
+- **failure_analyzer exception map** — Corrected `_EXCEPTION_MAP` entries: `PluginNotFoundError` → `("plugin_not_found", "init")`, `RoEValidationError` → `("roe_validation_error", "pre_execution")`, `PolicyDeniedException` stage → `"pre_execution"`. Added context merging into metadata
+- **analyze_failure error prefix** — Error messages now prefixed with `"Plugin execution error: "` for consistent messaging
+- **state_manager run_id** — `new_run_id()` returns full 32-char UUID hex instead of truncated 12
+- **test_plugin_allowlist patch path** — Fixed from `"redcheck.plugins.get_config"` to `"redcheck.config.get_config"` matching actual import location
+- **test_pipeline engagement fixture** — Added `scan_timeout_seconds` to MagicMock engagement
+- **test_failure_analyzer ScopeViolationError** — Fixed `scope=` kwarg to match actual constructor signature
+- **Finding confidence coercion** — `_dict_to_finding()` now converts numeric confidence (float) to string category ("low"/"medium"/"high") for plugins like network_scan that report float confidence
+
+---
+
 ## [0.3.1] — 2026-04-10
 
 ### 🔬 Phases A–F — Architecture Hardening & Live Validation

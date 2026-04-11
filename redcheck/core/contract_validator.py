@@ -152,6 +152,64 @@ def _check_c6_mode_declaration(result: Any) -> list[dict[str, str]]:
     return violations
 
 
+def _check_c7_failure_transparency(result: Any) -> list[dict[str, str]]:
+    """C7: Failed results MUST have structured error_type and failure_stage."""
+    violations: list[dict[str, str]] = []
+    if not getattr(result, "success", True):
+        error_type = getattr(result, "error_type", None) or result.metadata.get("error_type")
+        failure_stage = getattr(result, "failure_stage", None) or result.metadata.get(
+            "failure_stage"
+        )
+        if not error_type:
+            result.error_type = "unknown"
+            violations.append(
+                {
+                    "rule": "C7",
+                    "type": "missing_error_type",
+                    "action": "violation_tagged",
+                }
+            )
+        elif error_type != getattr(result, "error_type", None):
+            result.error_type = error_type
+        if not failure_stage:
+            result.failure_stage = "unknown"
+            violations.append(
+                {
+                    "rule": "C7",
+                    "type": "missing_failure_stage",
+                    "action": "violation_tagged",
+                }
+            )
+        elif failure_stage != getattr(result, "failure_stage", None):
+            result.failure_stage = failure_stage
+    return violations
+
+
+def _check_c9_no_fabrication(result: Any) -> list[dict[str, str]]:
+    """C9: Fake-metric flagged findings must have values replaced with UNKNOWN."""
+    violations: list[dict[str, str]] = []
+    for finding in getattr(result, "findings", []):
+        meta = finding.metadata if hasattr(finding, "metadata") else {}
+        if meta.get("fake_metric_detected"):
+            # Replace zero-value measurements with UNKNOWN sentinel
+            detail = getattr(finding, "detail", "")
+            if any(tok in detail for tok in ("0.0ms", "0.0%", "0/")):
+                try:
+                    finding.detail = "[UNKNOWN — measurement unverified]"
+                    meta["c9_replaced"] = True
+                except (AttributeError, ValueError):
+                    pass
+                violations.append(
+                    {
+                        "rule": "C9",
+                        "type": "fabricated_value_replaced",
+                        "action": "value_set_to_UNKNOWN",
+                        "finding_type": getattr(finding, "finding_type", ""),
+                    }
+                )
+    return violations
+
+
 # ------------------------------------------------------------------
 # Public API
 # ------------------------------------------------------------------
@@ -170,6 +228,8 @@ def validate_contract(result: Any) -> list[dict[str, str]]:
     violations.extend(_check_c4_enrichment_completeness(result))
     violations.extend(_check_c5_fake_metric(result))
     violations.extend(_check_c6_mode_declaration(result))
+    violations.extend(_check_c7_failure_transparency(result))
+    violations.extend(_check_c9_no_fabrication(result))
 
     if violations:
         result.metadata["contract_violations"] = violations

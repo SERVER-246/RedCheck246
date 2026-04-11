@@ -21,9 +21,11 @@ from redcheck.core.audit import get_audit_logger
 from redcheck.core.contract_validator import validate_contract
 from redcheck.core.enrichment import enrich_plugin_result
 from redcheck.core.evidence_store import EvidenceStore
+from redcheck.core.failure_analyzer import analyze_failure
 from redcheck.core.fake_metric_detector import detect_fake_metrics
 from redcheck.core.mode_separator import stamp_simulation_metadata
 from redcheck.core.policy_engine import get_policy_engine
+from redcheck.core.token_bucket import TokenBucket
 from redcheck.exceptions import (
     ActivationError,
     IsolationError,
@@ -32,7 +34,6 @@ from redcheck.exceptions import (
     PluginNotFoundError,
     PolicyDeniedException,
     RoEValidationError,
-    ScanTimeoutError,
 )
 from redcheck.models import EngagementContext, OffensiveControls, PluginCapability, RuntimeMode
 from redcheck.plugins.base_plugin import PluginRegistry, PluginResult
@@ -101,6 +102,9 @@ class Orchestrator:
         self._signature_verifier = signature_verifier
         self._evidence_store: EvidenceStore | None = None
         self._trusted_plugin_hashes: dict[str, str] | None = None
+        self._rate_limiters: dict[str, TokenBucket] = {}
+        self._environment_status: Any | None = None
+        self._target_validation_results: list[dict[str, Any]] | None = None
 
     @property
     def current_engagement(self) -> EngagementContext | None:
@@ -260,15 +264,42 @@ class Orchestrator:
             engagement_id=context.get("engagement_id", ""),
         )
 
+        # Rate limit enforcement (sync path)
+        rps = getattr(plugin, "rate_limit_rps", 10)
+        if plugin_name not in self._rate_limiters:
+            self._rate_limiters[plugin_name] = TokenBucket(rate=float(rps))
+        bucket = self._rate_limiters[plugin_name]
+        while not bucket.try_acquire():
+            time.sleep(0.05)
+
+        timeout = getattr(plugin, "timeout_seconds", 60)
+        plugin_meta = getattr(plugin, "plugin_metadata", None)
         start_time = time.monotonic()
-        try:
-            result = plugin.execute(context)
-        except Exception as exc:
-            result = PluginResult(
-                plugin_name=plugin_name,
-                success=False,
-                errors=[f"Plugin execution error: {exc}"],
-            )
+
+        # Sandbox isolation for plugins that require it (Phase M)
+        if plugin_meta and getattr(plugin_meta, "requires_isolation", False):
+            from redcheck.core.sandbox_executor import run_sandboxed
+
+            result = run_sandboxed(plugin_name, context, plugin_meta)
+        else:
+            try:
+                from concurrent.futures import ThreadPoolExecutor
+                from concurrent.futures import TimeoutError as FuturesTimeout
+
+                with ThreadPoolExecutor(max_workers=1) as pool:
+                    future = pool.submit(plugin.execute, context)
+                    result = future.result(timeout=timeout)
+            except FuturesTimeout:
+                result = PluginResult(
+                    plugin_name=plugin_name,
+                    success=False,
+                    error_type="timeout",
+                    error_message=f"Plugin '{plugin_name}' timed out after {timeout}s",
+                    failure_stage="execution",
+                    errors=[f"Plugin '{plugin_name}' timed out after {timeout}s"],
+                )
+            except Exception as exc:
+                result = analyze_failure(plugin_name, exc, context=context)
 
         duration_ms = int((time.monotonic() - start_time) * 1000)
         result.metadata["duration_ms"] = duration_ms
@@ -406,7 +437,11 @@ class Orchestrator:
         if engagement.runtime_mode == RuntimeMode.TEST and self._trusted_plugin_hashes is not None:
             self._verify_plugin_hash(plugin_name, plugin)
 
-        # Step 9 — Rate limit enforcement (placeholder — integrated in Module 1.3)
+        # Step 9 — Rate limit enforcement
+        rps = getattr(plugin, "rate_limit_rps", 10)
+        if plugin_name not in self._rate_limiters:
+            self._rate_limiters[plugin_name] = TokenBucket(rate=float(rps))
+        await self._rate_limiters[plugin_name].acquire()
 
         # Step 10 — Dry run
         if dry_run:
@@ -457,17 +492,17 @@ class Orchestrator:
                     timeout=timeout,
                 )
         except asyncio.TimeoutError:
-            raise ScanTimeoutError(
-                plugin_name,
-                float(timeout),
-                engagement_id=eid,
-            ) from None
-        except Exception as exc:
             result = PluginResult(
                 plugin_name=plugin_name,
                 success=False,
-                errors=[f"Plugin execution error: {exc}"],
+                error_type="timeout",
+                error_message=f"Plugin '{plugin_name}' timed out after {timeout}s",
+                failure_stage="execution",
+                errors=[f"Plugin '{plugin_name}' timed out after {timeout}s"],
+                metadata={"timeout_seconds": timeout},
             )
+        except Exception as exc:
+            result = analyze_failure(plugin_name, exc, context=context)
 
         duration_ms = int((time.monotonic() - start_time) * 1000)
         result.metadata["duration_ms"] = duration_ms
@@ -572,6 +607,44 @@ class Orchestrator:
                 plugin_name,
                 f"Plugin hash verification failed: expected {expected[:12]}…, got {actual[:12]}…",
             )
+
+    def probe_environment(self, external_deps: list[str] | None = None) -> dict[str, Any]:
+        """Run pre-flight environment probe for the current engagement (Phase N).
+
+        Returns the serialised EnvironmentStatus dict.
+        """
+        from redcheck.core.environment_probe import probe_environment
+
+        targets = self._current_engagement.targets if self._current_engagement else []
+        status = probe_environment(targets, external_deps=external_deps)
+        self._environment_status = status
+        return status.to_dict()
+
+    async def validate_targets(self) -> list[dict[str, Any]]:
+        """Run TargetIdentityValidator on all engagement targets (Phase N).
+
+        Returns a list of serialised TargetValidationResult dicts.
+        """
+        from redcheck.core.target_validator import TargetIdentityValidator
+
+        if not self._current_engagement:
+            return []
+
+        validator = TargetIdentityValidator(verify_tls=True, verify_dns=True)
+        results = []
+        for target in self._current_engagement.targets:
+            result = await validator.validate_target(target)
+            results.append(
+                {
+                    "target": result.target,
+                    "confidence": result.confidence,
+                    "dns_valid": result.dns_valid,
+                    "tls_valid": result.tls_valid,
+                    "warnings": result.warnings,
+                }
+            )
+        self._target_validation_results = results
+        return results
 
     def shutdown(self) -> None:
         """Clean shutdown of the orchestrator."""

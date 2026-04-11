@@ -6,6 +6,8 @@ No side effects on construction — call ``ensure_dirs()`` explicitly.
 
 from __future__ import annotations
 
+import hashlib
+import hmac
 from pathlib import Path
 from typing import Any
 
@@ -14,6 +16,11 @@ from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from redcheck.models import RuntimeMode
+
+
+def hmac_compare(a: str, b: str) -> bool:
+    """Constant-time string comparison to prevent timing attacks."""
+    return hmac.compare_digest(a.encode(), b.encode())
 
 
 class RedCheckConfig(BaseSettings):
@@ -74,6 +81,9 @@ class RedCheckConfig(BaseSettings):
     multi_tenant_enabled: bool = False
     default_tenant_id: str = "default"
 
+    # Plugin allowlist (Phase O) — if set, only listed plugins may load
+    plugin_allowlist: list[str] | None = None
+
     # OTP / Test Mode (Phase 1)
     otp_smtp_host: str = "localhost"
     otp_smtp_port: int = Field(default=587, ge=1, le=65535)
@@ -118,6 +128,36 @@ class RedCheckConfig(BaseSettings):
         with open(path, encoding="utf-8") as f:
             data = yaml.safe_load(f) or {}
         # Filter to known fields
+        known = cls.model_fields.keys()
+        filtered = {k: v for k, v in data.items() if k in known}
+        return cls(**filtered)
+
+    @classmethod
+    def from_yaml_verified(cls, path: str | Path, expected_hash: str) -> RedCheckConfig:
+        """Load config from YAML, verifying SHA-256 integrity first.
+
+        Args:
+            path: Path to the YAML config file.
+            expected_hash: Hex-encoded SHA-256 digest of the file contents.
+
+        Returns:
+            Validated RedCheckConfig.
+
+        Raises:
+            redcheck.exceptions.ConfigTamperError: If the hash does not match.
+            FileNotFoundError: If the file does not exist.
+        """
+        from redcheck.exceptions import ConfigTamperError
+
+        path = Path(path)
+        raw = path.read_bytes()
+        actual_hash = hashlib.sha256(raw).hexdigest()
+        if not hmac_compare(actual_hash, expected_hash):
+            raise ConfigTamperError(
+                f"Config integrity check failed for {path}: "
+                f"expected {expected_hash}, got {actual_hash}"
+            )
+        data = yaml.safe_load(raw) or {}
         known = cls.model_fields.keys()
         filtered = {k: v for k, v in data.items() if k in known}
         return cls(**filtered)

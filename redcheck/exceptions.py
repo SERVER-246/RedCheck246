@@ -93,6 +93,10 @@ class ConfigurationError(RedCheckError):
     """Raised on config loading / validation failures."""
 
 
+class ConfigTamperError(ConfigurationError):
+    """Raised when a config file fails integrity verification (Phase O)."""
+
+
 # ---------------------------------------------------------------------------
 # Cryptography
 # ---------------------------------------------------------------------------

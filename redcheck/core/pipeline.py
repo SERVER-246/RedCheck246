@@ -6,17 +6,19 @@ Wraps the Orchestrator — never bypasses the 11-step enforcement.
 
 from __future__ import annotations
 
+import time
 from typing import TYPE_CHECKING, Any
 
 import structlog
 
 from redcheck.core.attack_chain_scorer import AttackChainScorer
 from redcheck.exceptions import ChainModeError, PipelineError  # noqa: F401
-from redcheck.models import AttackerClass
+from redcheck.models import AttackerClass, ExecutionState, PluginExecutionStatus
 from redcheck.plugins.base_plugin import PluginRegistry, PluginResult
 
 if TYPE_CHECKING:
     from redcheck.core.orchestrator import Orchestrator
+    from redcheck.core.state_manager import ExecutionStateManager
     from redcheck.models import EngagementContext
 
 log = structlog.get_logger(__name__)
@@ -217,6 +219,12 @@ class PipelineExecutor:
         self._orch = orchestrator
         self._results: dict[str, PluginResult] = {}
         self._attack_chain_summary: dict[str, Any] | None = None
+        self._state_manager: ExecutionStateManager | None = None
+        self._execution_state: ExecutionState | None = None
+
+    def set_state_manager(self, manager: ExecutionStateManager) -> None:
+        """Attach a state manager for checkpoint/resume support."""
+        self._state_manager = manager
 
     @property
     def results(self) -> dict[str, PluginResult]:
@@ -236,6 +244,7 @@ class PipelineExecutor:
         dry_run: bool = False,
         chain: bool = True,
         auto_order: bool = False,
+        resume_state: ExecutionState | None = None,
     ) -> dict[str, PluginResult]:
         """Execute plugins in order, optionally chaining findings.
 
@@ -263,6 +272,16 @@ class PipelineExecutor:
                 engagement_id=engagement.engagement_id,
             )
 
+        if not chain:
+            log.warning(
+                "chain_mode_disabled",
+                message=(
+                    "chain_mode=False — cross-plugin intelligence disabled, "
+                    "results may be incomplete"
+                ),
+                engagement_id=engagement.engagement_id,
+            )
+
         if not plugin_order:
             return {}
 
@@ -281,6 +300,31 @@ class PipelineExecutor:
 
         self._results.clear()
 
+        # Initialize execution state for checkpoint/resume
+        if resume_state is not None:
+            self._execution_state = resume_state
+            # Skip already-completed plugins
+            completed = set(resume_state.completed_plugins)
+            plugin_order = [p for p in plugin_order if p not in completed]
+            log.info(
+                "pipeline_resuming",
+                skipping=len(completed),
+                remaining=len(plugin_order),
+                run_id=resume_state.run_id,
+            )
+        elif self._state_manager is not None:
+            from redcheck.core.state_manager import ExecutionStateManager
+
+            run_id = ExecutionStateManager.new_run_id()
+            self._execution_state = ExecutionState(
+                engagement_id=engagement.engagement_id,
+                run_id=run_id,
+                started_at=__import__("datetime").datetime.now(__import__("datetime").timezone.utc),
+                updated_at=__import__("datetime").datetime.now(__import__("datetime").timezone.utc),
+                plugin_states=dict.fromkeys(plugin_order, PluginExecutionStatus.PENDING),
+            )
+            self._state_manager.save_checkpoint(self._execution_state)
+
         log.info(
             "pipeline_start",
             plugins=len(plugin_order),
@@ -289,7 +333,32 @@ class PipelineExecutor:
             engagement_id=engagement.engagement_id,
         )
 
+        # Global pipeline timeout (Phase M)
+        pipeline_timeout = getattr(engagement, "scan_timeout_seconds", None) or 300
+        pipeline_deadline = time.monotonic() + pipeline_timeout
+
         for plugin_name in plugin_order:
+            # Enforce global pipeline deadline
+            if time.monotonic() >= pipeline_deadline:
+                remaining = [p for p in plugin_order if p not in self._results]
+                for p in remaining:
+                    self._results[p] = PluginResult(
+                        plugin_name=p,
+                        success=False,
+                        error_type="pipeline_timeout",
+                        error_message=f"Pipeline timeout ({pipeline_timeout}s) exceeded",
+                        failure_stage="scheduling",
+                        errors=[f"Pipeline timeout ({pipeline_timeout}s) exceeded"],
+                    )
+                    self._checkpoint_plugin(p, PluginExecutionStatus.FAILED)
+                log.warning(
+                    "pipeline_timeout_exceeded",
+                    timeout=pipeline_timeout,
+                    skipped=len(remaining),
+                    engagement_id=engagement.engagement_id,
+                )
+                break
+
             extra_context: dict[str, Any] = {}
 
             # Dependency check
@@ -306,11 +375,15 @@ class PipelineExecutor:
                     success=False,
                     findings=[],
                     errors=[f"Skipped: {skip_reason}"],
+                    error_type="dependency_missing",
+                    failure_stage="init",
+                    error_message=skip_reason,
                     metadata={
                         "error_type": "dependency_missing",
                         "skip_reason": skip_reason,
                     },
                 )
+                self._checkpoint_plugin(plugin_name, PluginExecutionStatus.SKIPPED)
                 continue
 
             if degraded:
@@ -368,11 +441,28 @@ class PipelineExecutor:
                     success=False,
                     findings=[],
                     errors=[f"Execution failed: {exc}"],
+                    error_type=type(exc).__name__,
+                    error_message=str(exc),
+                    failure_stage="execution",
                     metadata={"error_type": type(exc).__name__, "isolated": True},
                 )
+                self._checkpoint_plugin(plugin_name, PluginExecutionStatus.FAILED)
                 continue
 
             self._results[plugin_name] = result
+
+            # Phase N — Stamp source_chain on findings produced by this plugin
+            if chain and result.findings:
+                upstream = extra_context.get("upstream_plugins", [])
+                chain_list = list(upstream) + [plugin_name] if upstream else [plugin_name]
+                for finding in result.findings:
+                    if finding.source_chain is None:
+                        finding.source_chain = chain_list
+
+            status = (
+                PluginExecutionStatus.COMPLETED if result.success else PluginExecutionStatus.FAILED
+            )
+            self._checkpoint_plugin(plugin_name, status)
             log.info(
                 "pipeline_plugin_complete",
                 plugin_name=plugin_name,
@@ -393,6 +483,17 @@ class PipelineExecutor:
         )
 
         return dict(self._results)
+
+    # ------------------------------------------------------------------
+    # State persistence helpers
+    # ------------------------------------------------------------------
+
+    def _checkpoint_plugin(self, plugin_name: str, status: PluginExecutionStatus) -> None:
+        """Update execution state and persist checkpoint if manager is set."""
+        if self._execution_state is None or self._state_manager is None:
+            return
+        self._state_manager.mark_plugin(self._execution_state, plugin_name, status)
+        self._state_manager.save_checkpoint(self._execution_state)
 
     # ------------------------------------------------------------------
     # Attack-chain scoring (Phase D)

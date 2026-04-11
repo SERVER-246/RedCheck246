@@ -116,6 +116,9 @@ class JSONReportGenerator:
         metadata: ReportMetadata | None = None,
         quality_score: QualityScore | None = None,
         attack_chain_summary: dict[str, Any] | None = None,
+        trust_assessment: dict[str, Any] | None = None,
+        input_snapshot: dict[str, Any] | None = None,
+        production_readiness: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Generate a JSON-serializable report dict.
 
@@ -178,6 +181,18 @@ class JSONReportGenerator:
 
         if attack_chain_summary is not None:
             report["attack_chains"] = attack_chain_summary
+
+        # Phase I: System Trust Assessment
+        if trust_assessment is not None:
+            report["system_trust"] = trust_assessment
+
+        # Phase L: Input Snapshot
+        if input_snapshot is not None:
+            report["input_snapshot"] = input_snapshot
+
+        # Phase J: Production Readiness Auto-Check
+        if production_readiness is not None:
+            report["production_readiness"] = production_readiness
 
         return report
 
