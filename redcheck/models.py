@@ -133,7 +133,7 @@ class PluginMetadata(BaseModel):
     name: str
     capability: PluginCapability
     required_controls: list[str] = Field(default_factory=list)
-    timeout_seconds: int = Field(default=60, ge=1, le=600)
+    timeout_seconds: int = Field(default=300, ge=1, le=600)
     rate_limit_rps: int = Field(default=10, ge=1, le=50)
     mitre_techniques: list[str] = Field(default_factory=list)
     requires_isolation: bool = False

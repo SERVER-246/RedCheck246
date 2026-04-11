@@ -272,7 +272,7 @@ class Orchestrator:
         while not bucket.try_acquire():
             time.sleep(0.05)
 
-        timeout = getattr(plugin, "timeout_seconds", 60)
+        timeout = getattr(plugin, "timeout_seconds", 300)
         plugin_meta = getattr(plugin, "plugin_metadata", None)
         start_time = time.monotonic()
 
@@ -459,7 +459,7 @@ class Orchestrator:
             return plugin.dry_run(context)
 
         # Step 11 — Execute with timeout
-        timeout = getattr(plugin, "timeout_seconds", 60)
+        timeout = getattr(plugin, "timeout_seconds", 300)
         context = engagement.model_dump(mode="json")
         context["plugin_category"] = getattr(plugin, "category", "")
         if extra_context:

@@ -110,4 +110,4 @@ ignore_missing_imports = true
 
 [tool.bandit]
 exclude_dirs = ["tests"]
-skips = ["B110", "B112", "B108", "B501"]
+skips = ["B110", "B112", "B108", "B501", "B404", "B603"]

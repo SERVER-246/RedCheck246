@@ -20,7 +20,7 @@ class TestPluginMetadataDefaults:
         assert pm.name == "test-plugin"
         assert pm.capability == PluginCapability.PASSIVE
         assert pm.required_controls == []
-        assert pm.timeout_seconds == 60
+        assert pm.timeout_seconds == 300
         assert pm.rate_limit_rps == 10
         assert pm.mitre_techniques == []
         assert pm.requires_isolation is False

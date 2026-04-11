@@ -43,7 +43,6 @@ class IDORValidator(BasePlugin):
     capability = PluginCapability.ACTIVE
 
     required_controls = ["allow_auth_testing"]
-    timeout_seconds = 60
     rate_limit_rps = 5
     mitre_techniques = ["T1565.001"]
     requires_isolation = False

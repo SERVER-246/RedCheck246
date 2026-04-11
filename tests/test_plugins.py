@@ -123,7 +123,7 @@ class TestBasePluginExtensions:
                 return PluginResult(plugin_name=self.name, success=True)
 
         p = TimeoutPlugin()
-        assert p.timeout_seconds == 60
+        assert p.timeout_seconds == 300
 
     def test_default_rate_limit(self):
         class RatePlugin(BasePlugin):

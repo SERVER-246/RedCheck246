@@ -8,7 +8,7 @@ configurable memory limits and timeouts.
 from __future__ import annotations
 
 import json
-import subprocess
+import subprocess  # nosec B404 — intentional for plugin sandboxing
 import sys
 import textwrap
 from typing import TYPE_CHECKING, Any
@@ -98,7 +98,7 @@ def run_sandboxed(
     )
 
     try:
-        proc = subprocess.run(  # noqa: S603
+        proc = subprocess.run(  # noqa: S603  # nosec B603
             [python, "-c", runner_script],
             input=json.dumps(_serialisable_context(context)),
             capture_output=True,

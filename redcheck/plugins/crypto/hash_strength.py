@@ -198,7 +198,6 @@ class OfflineHashStrengthAnalyzer(BasePlugin):
     capability = PluginCapability.PASSIVE
 
     required_controls: list[str] = []
-    timeout_seconds = 60
     rate_limit_rps = 10
     mitre_techniques = ["T1110.002"]
     requires_isolation = False

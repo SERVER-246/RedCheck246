@@ -116,7 +116,6 @@ class BreachLookup(BasePlugin):
     capability = PluginCapability.PASSIVE
 
     required_controls: list[str] = []
-    timeout_seconds = 60
     rate_limit_rps = 5
     mitre_techniques = ["T1589.001"]
     requires_isolation = False

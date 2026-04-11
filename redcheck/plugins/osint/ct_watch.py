@@ -75,7 +75,6 @@ class CTLogMonitor(BasePlugin):
     capability = PluginCapability.PASSIVE
 
     required_controls: list[str] = []
-    timeout_seconds = 60
     rate_limit_rps = 2
     mitre_techniques = ["T1596.003"]
     requires_isolation = False

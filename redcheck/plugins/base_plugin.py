@@ -89,7 +89,7 @@ class BasePlugin(ABC):
 
     # Phase 1 extensions
     required_controls: list[str] = []
-    timeout_seconds: int = 60
+    timeout_seconds: int = 300
     rate_limit_rps: int = 10
     mitre_techniques: list[str] = []
     requires_isolation: bool = False

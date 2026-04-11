@@ -96,7 +96,6 @@ class PersistenceValidator(BasePlugin):
     capability = PluginCapability.ACTIVE
 
     required_controls: list[str] = ["allow_auth_testing"]
-    timeout_seconds = 60
     rate_limit_rps = 5
     mitre_techniques = ["T1053.005", "T1547.001", "T1136.001", "T1505.003", "T1543.003"]
     requires_isolation = False
