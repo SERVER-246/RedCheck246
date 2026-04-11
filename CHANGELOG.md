@@ -5,7 +5,7 @@ All notable changes to RedCheck246 are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased] — Phases H/K/M/O/I/L/N/J (All 8 Phases Complete)
+## [0.3.2] — 2026-04-11 — Phases H/K/M/O/I/L/N/J (All 8 Phases Complete)
 
 ### 🛡️ Phases H, K, M, O — Failure Intelligence, State Persistence, Timeout Hardening & Self-Security
 
